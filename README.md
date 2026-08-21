@@ -123,9 +123,12 @@ R·G·B 가 함께 움직이지만 혈류가 변하면 초록이 크게 움직�
 
 ## 쓴 외부 라이브러리
 
-**없습니다.** 브라우저에 원래 있는 기능만 씁니다
+계산·촬영 코드는 **없습니다.** 브라우저에 원래 있는 기능만 씁니다
 (`getUserMedia`, `canvas`, `requestVideoFrameCallback`).
-따로 표시하거나 함께 배포해야 할 남의 코드가 없습니다.
+
+글꼴 하나만 바깥에서 가져옵니다 — [Pretendard](https://github.com/orioncactus/pretendard)
+(SIL Open Font License, jsDelivr CDN). 못 받아오면 기기 글꼴로 내려가고, 계산과
+영상은 여전히 이 기기 밖으로 나가지 않습니다.
 
 ---
 

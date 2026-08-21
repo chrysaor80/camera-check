@@ -2,110 +2,115 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>카메라 확인</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <style>
-  :root {
-    --ink:#12212e; --muted:#5a6b7b; --line:#cfd8e3; --bg:#edf1f5;
-    --surface:#fff; --brand:#0e6e8c;
-    --ok-bg:#e6f4ec; --ok-ink:#0a6b45;
-    --bad-bg:#fbebe9; --bad-ink:#a4231b;
-    --info-bg:#e8f1f6;
+  /* 2026-08-21 디자인 검토 2h — 판정 먼저, 근거는 나중. 메인과 같은 토큰을 쓴다. */
+  :root{
+    --bg:#eef2f7; --ink:#1c2333; --muted:#71798a; --faint:#9aa2b1;
+    --accent:#3d6ef2; --accent-soft:#e8eefc; --card:#fff;
+    --ok-bg:#e7f6ec; --ok:#2fa15c; --ok-ink:#19603a;
+    --bad-bg:#fdebe8; --bad:#d4432e; --bad-ink:#8f2a1c;
+    --line:#f0f3f8; --shadow:0 2px 8px rgba(28,35,51,.06); --r:22px;
   }
-  * { box-sizing:border-box; }
-  body {
-    margin:0; background:var(--bg); color:var(--ink);
-    font-family:"Malgun Gothic","맑은 고딕","Noto Sans KR",system-ui,sans-serif;
-    line-height:1.65; font-size:17px;
-  }
-  .wrap { max-width:680px; margin:0 auto; padding:24px 16px 64px; }
-  .card {
-    background:var(--surface); border:1px solid var(--line);
-    border-radius:16px; padding:28px 24px; margin:0 0 20px;
-  }
-  h1 { font-size:28px; margin:0 0 10px; }
-  h2 { font-size:19px; margin:28px 0 10px; }
-  p { margin:0 0 14px; }
-  .muted { color:var(--muted); font-size:15px; }
-  button {
-    width:100%; border:0; border-radius:10px; padding:20px;
-    font-size:20px; font-weight:700; font-family:inherit;
-    background:var(--brand); color:#fff; cursor:pointer;
-  }
-  button:disabled { opacity:.45; cursor:default; }
-  button.ghost {
-    background:var(--surface); color:var(--brand);
-    border:2px solid var(--brand); font-size:17px; padding:14px;
-  }
-  .banner {
-    border-radius:12px; padding:20px; font-weight:700; font-size:19px;
-    margin:0 0 18px; white-space:pre-line;
-  }
-  .banner.ok   { background:var(--ok-bg);   color:var(--ok-ink); }
-  .banner.bad  { background:var(--bad-bg);  color:var(--bad-ink); }
-  .banner.info { background:var(--info-bg); color:var(--brand); }
-  table { width:100%; border-collapse:collapse; font-size:16px; }
-  th, td { text-align:left; padding:11px 4px; border-bottom:1px solid var(--line); vertical-align:top; }
-  th { color:var(--muted); font-weight:600; width:44%; }
-  td b.y { color:var(--ok-ink); }
-  td b.n { color:var(--bad-ink); }
-  select { width:100%; padding:12px; font-size:16px; font-family:inherit;
-           border:2px solid var(--line); border-radius:10px; background:#f7f9fb; }
-  textarea {
-    width:100%; height:220px; font-family:ui-monospace,Consolas,monospace;
-    font-size:12px; border:2px solid var(--line); border-radius:10px;
-    padding:12px; background:#f7f9fb; color:var(--ink);
-  }
-  .steps { margin:0; padding-left:20px; color:var(--muted); font-size:15px; }
-  .steps li { margin:4px 0; }
-  video, canvas { display:none; }
-  .hide { display:none; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);line-height:1.5;
+    font-family:"Pretendard Variable",Pretendard,"Noto Sans KR","Malgun Gothic","맑은 고딕",system-ui,sans-serif}
+  .wrap{max-width:480px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 28px) 22px 40px;
+    display:flex;flex-direction:column;gap:12px}
+  .top{display:flex;justify-content:space-between;align-items:center}
+  .brand{font-size:14px;font-weight:800;color:var(--accent)}
+  .ver{font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums}
+  h1{margin:0;font-size:30px;line-height:1.28;font-weight:800;letter-spacing:-.02em}
+  p{margin:0}
+  .lead{font-size:16.5px;line-height:1.6;color:var(--muted)}
+  .lead b{color:var(--ink)}
+  .card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:18px}
+  .kicker{margin:0 0 8px;font-size:13px;font-weight:800;color:var(--faint)}
+  button{width:100%;border:0;border-radius:999px;height:56px;font-family:inherit;
+    font-weight:800;font-size:18px;background:var(--accent);color:#fff;cursor:pointer}
+  button.soft{background:var(--card);color:var(--ink);box-shadow:var(--shadow);font-weight:700;font-size:16.5px}
+  button:disabled{opacity:.45;cursor:default}
+  .row2{display:flex;gap:10px}
+  .row2>*{flex:1}
+  select{width:100%;padding:13px 14px;font-size:16px;font-family:inherit;border:0;
+    border-radius:14px;background:var(--accent-soft);color:var(--ink)}
+  .steps{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;
+    font-size:15px;color:var(--muted)}
+  .verdict{display:flex;gap:14px;align-items:center;padding:20px}
+  .verdict svg{flex:none}
+  .verdict b{display:block;font-size:21px;font-weight:800;line-height:1.25}
+  .verdict p{margin:3px 0 0;font-size:13.5px;color:var(--muted);line-height:1.5;white-space:pre-line}
+  .rows{padding:8px 18px;font-size:15px}
+  .rows>div{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+  .rows>div:last-child{border-bottom:0}
+  .rows svg{flex:none}
+  .rows .k{color:var(--muted);flex:1}
+  .rows b{font-variant-numeric:tabular-nums;text-align:right}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:8px 0;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--faint);font-weight:500;width:42%}
+  td{font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+  tr:last-child th,tr:last-child td{border-bottom:0}
+  .muted{color:var(--faint);font-weight:500}
+  td b.y{color:var(--ok-ink)} td b.n{color:var(--bad-ink)}
+  .staff{padding:0;overflow:hidden}
+  .staff .head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;
+    cursor:pointer;font-size:14.5px;font-weight:800;color:var(--muted)}
+  .staff .head span{color:var(--faint);transition:transform .2s}
+  .staff.open .head span{transform:rotate(90deg)}
+  .staff .body{display:none;padding:0 18px 16px}
+  .staff.open .body{display:block}
+  textarea{width:100%;height:220px;font-family:ui-monospace,Consolas,monospace;font-size:12px;
+    border:0;border-radius:14px;padding:12px;background:var(--accent-soft);color:var(--ink)}
+  .foot{font-size:12.5px;color:var(--faint);text-align:center;line-height:1.6}
+  .foot a{color:var(--accent)}
+  video,canvas{display:none}
+  #result:not(.hide){display:flex;flex-direction:column;gap:12px}
+  .hide{display:none}
 </style>
 </head>
 <body>
 <div class="wrap">
 
-  <div class="card">
-    <h1>카메라 확인</h1>
-    <p>이 기기의 카메라로 <b>얼굴 영상 분석이 가능한지</b> 봅니다.<br>
-       버튼을 누르고 <b>20초쯤</b> 그대로 두시면 됩니다.</p>
-    <p class="muted">
-      촬영본은 이 기기 밖으로 <b>나가지 않습니다.</b>
-      인터넷으로 보내지 않고 저장하지도 않습니다. 화면에서 확인하고 끝납니다.
-    </p>
+  <div class="top"><span class="brand">카메라 확인</span><span class="ver" id="ver"></span></div>
 
-    <div id="pick" class="hide">
-      <h2>카메라 고르기</h2>
-      <select id="cams"></select>
-      <p class="muted" style="margin-top:10px">
-        여러 개면 하나씩 해보셔도 됩니다. 얼굴을 찍을 카메라를 고르세요.
-      </p>
+  <h1>이 카메라로<br>되는지 봅니다</h1>
+  <p class="lead">버튼을 누르고 <b>20초쯤</b> 그대로 두시면 돼요.<br>
+     촬영본은 이 기기 밖으로 나가지 않고 저장하지도 않아요.</p>
+
+  <div id="pick" class="card hide">
+    <p class="kicker">카메라 고르기</p>
+    <select id="cams"></select>
+    <p class="lead" style="font-size:14px;margin-top:10px">여러 개면 하나씩 해보셔도 돼요. 얼굴을 찍을 카메라를 고르세요.</p>
+  </div>
+
+  <button id="go">확인 시작</button>
+
+  <div id="progress" class="card hide">
+    <ol class="steps" id="steps"></ol>
+  </div>
+
+  <div id="result" class="hide">
+    <div class="card verdict"><span id="vicon"></span><div><b id="verdict">—</b><p id="vsub"></p></div></div>
+    <div class="card rows" id="rows"></div>
+    <div class="card" style="padding:8px 18px">
+      <p class="kicker" style="margin:10px 0 2px">세부 수치</p>
+      <table id="table"></table>
     </div>
-
-    <p style="margin-top:22px">
-      <button id="go">확인 시작</button>
-    </p>
-    <div id="progress" class="hide">
-      <ol class="steps" id="steps"></ol>
+    <div class="card staff" id="staff">
+      <div class="head" id="staffhead">스태프 전용 · 복사용 원문<span>▸</span></div>
+      <div class="body"><textarea id="report" readonly></textarea></div>
+    </div>
+    <div class="row2">
+      <button id="copy" class="soft">결과 복사</button>
+      <button id="again">다시 확인</button>
     </div>
   </div>
 
-  <div id="result" class="card hide">
-    <div id="verdict" class="banner"></div>
-    <table id="table"></table>
-
-    <h2>결과 보내기</h2>
-    <p class="muted">아래 내용을 통째로 복사해서 개발자에게 보내주세요.</p>
-    <p><button id="copy" class="ghost">결과 복사하기</button></p>
-    <textarea id="report" readonly></textarea>
-    <p style="margin-top:18px"><button id="again" class="ghost">다시 확인</button></p>
-  </div>
-
-  <p class="muted" style="text-align:center">
-    <a href="./">얼굴 촬영 시험으로 가기</a><br>
-    카메라 성능만 확인하는 페이지입니다. 아무것도 저장하지 않습니다.<br>
-    <span id="ver"></span>
-  </p>
+  <p class="foot"><a href="./">얼굴 촬영 시험으로 가기</a><br>
+    카메라 성능만 확인하는 페이지예요. 아무것도 저장하지 않아요.</p>
 </div>
 
 <video id="v" playsinline muted autoplay></video>
@@ -114,10 +119,15 @@
 <script>
 "use strict";
 
-const VERSION = "2026-08-21 · 확인판 2";
+const VERSION = "2026-08-21 · 확인판 3";
 const $ = (id) => document.getElementById(id);
 const V = $("v"), C = $("c"), CX = C.getContext("2d", { willReadFrequently: true });
-$("ver").textContent = "화면 판 " + VERSION;
+$("ver").textContent = VERSION.replace("2026-08-21 · ", "");
+
+const ICON_OK = '<svg viewBox="0 0 20 20" width="20" height="20"><circle cx="10" cy="10" r="10" fill="#e7f6ec"/><path d="M6 10.3l2.7 2.7 5.3-5.5" stroke="#2fa15c" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const ICON_BAD = '<svg viewBox="0 0 20 20" width="20" height="20"><circle cx="10" cy="10" r="10" fill="#fdebe8"/><path d="M6.6 6.6l6.8 6.8M13.4 6.6l-6.8 6.8" stroke="#d4432e" stroke-width="2.2" stroke-linecap="round"/></svg>';
+const ICON_OK_BIG = '<svg viewBox="0 0 40 40" width="46" height="46"><circle cx="20" cy="20" r="20" fill="#e7f6ec"/><path d="M12 20.5l5.5 5.5L28 15" stroke="#2fa15c" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const ICON_BAD_BIG = '<svg viewBox="0 0 40 40" width="46" height="46"><circle cx="20" cy="20" r="20" fill="#fdebe8"/><path d="M13 13l14 14M27 13L13 27" stroke="#d4432e" stroke-width="3" stroke-linecap="round"/></svg>';
 
 // 밝기 시험에서 이만큼은 변해야 "정말로 고정이 먹었다" 고 본다.
 // 안드로이드 앱의 시험과 같은 기준을 쓴다.
@@ -237,10 +247,22 @@ async function exposureTest(track, caps) {
   return out;
 }
 
+// 카메라가 돌려준 이름 같은 바깥 문자열은 표에 넣기 전에 꺾쇠를 죽인다
+const esc = t => String(t).replace(/[&<>"']/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
 function row(label, value) {
   return `<tr><th>${label}</th><td>${value}</td></tr>`;
 }
 const yes = (b) => b ? '<b class="y">O 됩니다</b>' : '<b class="n">X 안 됩니다</b>';
+// 판정 줄 하나. 항목별 O/X 를 왼끝에 정렬해 훑어 내리게 한다.
+function line(ok, label, value) {
+  return '<div>' + (ok ? ICON_OK : ICON_BAD) + '<span class="k">' + label + '</span><b>' + value + '</b></div>';
+}
+function showVerdict(ok, title, sub) {
+  $("vicon").innerHTML = ok ? ICON_OK_BIG : ICON_BAD_BIG;
+  $("verdict").textContent = title;
+  $("vsub").textContent = sub;
+}
 
 async function run() {
   $("go").disabled = true;
@@ -251,7 +273,7 @@ async function run() {
 
   try {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      throw new Error("이 브라우저는 카메라를 쓸 수 없습니다. 크롬으로 열어주세요.");
+      throw new Error("이 브라우저는 카메라를 쓸 수 없어요. 크롬으로 열어주세요.");
     }
     step("카메라 권한 받기");
     const chosen = $("cams").value;
@@ -281,28 +303,37 @@ async function run() {
 
     const wbManual = (caps.whiteBalanceMode || []).includes("manual");
     const realFix = exp.supported && exp.applied && exp.spread >= SPREAD_PASS;
+    const fpsOk = fps.fps >= 24;
 
-    // ── 판정 ──────────────────────────────────────────────
-    let cls, verdict;
-    if (realFix) {
-      cls = "ok";
-      verdict = "통과했습니다.\n이 카메라는 밝기를 고정할 수 있습니다.";
+    // ── 판정 ── 먼저 한 줄로, 근거는 그 아래에
+    let title, sub;
+    if (realFix && fpsOk) {
+      title = "이 카메라로 됩니다";
+      sub = "노출이 고정되고 프레임이 충분히 들어와요";
+    } else if (realFix) {
+      title = "노출은 고정되지만 프레임이 모자라요";
+      sub = "초당 " + fps.fps.toFixed(1) + "장. 다른 창을 닫고 다시 해보세요";
     } else if (exp.supported) {
-      cls = "bad";
-      verdict = "밝기 고정이 실제로는 먹지 않았습니다.\n" +
-                "된다고 적혀 있지만 화면이 따라 바뀌지 않았습니다.";
+      title = "밝기 고정이 실제로는 먹지 않았어요";
+      sub = "된다고 적혀 있지만 화면이 따라 바뀌지 않았어요";
     } else {
-      cls = "bad";
-      verdict = "이 브라우저에서는 밝기를 고정할 수 없습니다.\n" +
-                "괜찮습니다. 그것도 저희에게는 중요한 정보입니다.";
+      title = "밝기 고정이 안 되는 카메라예요";
+      sub = "괜찮아요. 그것도 저희에게는 중요한 정보예요";
     }
-    $("verdict").className = "banner " + cls;
-    $("verdict").textContent = verdict;
+    showVerdict(realFix && fpsOk, title, sub);
+
+    $("rows").innerHTML =
+      line(exp.supported && exp.applied, "노출 고정",
+           !exp.supported ? "지원 안 함" : (exp.applied ? "manual 적용" : "적용 안 됨")) +
+      line(exp.supported && exp.spread >= SPREAD_PASS, "밝기 실변화",
+           exp.supported ? exp.spread.toFixed(1) + " (기준 " + SPREAD_PASS.toFixed(1) + ")" : "시험 못 함") +
+      line(fpsOk, "실측 프레임", "초당 " + fps.fps.toFixed(1) + "장") +
+      line(wbManual, "색 고정", wbManual ? "지원함" : "지원 안 함");
 
     $("table").innerHTML =
-      row("카메라", (set.label || track.label || "이름 없음")) +
+      row("카메라", esc(set.label || track.label || "이름 없음")) +
       row("화면 크기", `${set.width || "?"} x ${set.height || "?"}`) +
-      row("실제 속도", `${fps.fps.toFixed(1)} 장/초  <span class="muted">(설정값 ${set.frameRate || "?"})</span>`) +
+      row("실제 속도", `${fps.fps.toFixed(1)} 장/초 <span class="muted">(설정값 ${set.frameRate || "?"})</span>`) +
       row("속도 흔들림", `${fps.jitter.toFixed(1)} ms`) +
       row("밝기 고정 지원", yes(exp.supported)) +
       row("밝기 고정 실측", exp.supported
@@ -318,7 +349,7 @@ async function run() {
     note("브라우저: " + navigator.userAgent);
     note("화면: " + screen.width + "x" + screen.height + " @" + devicePixelRatio);
     note("");
-    note("[판정] " + verdict.replace(/\n/g, " "));
+    note("[판정] " + title + " — " + sub);
     note("");
     note("카메라: " + (set.label || track.label || "이름 없음"));
     note("크기: " + set.width + "x" + set.height);
@@ -345,16 +376,16 @@ async function run() {
 
     $("report").value = log.join("\n");
     $("result").classList.remove("hide");
-    $("result").scrollIntoView({ behavior: "smooth" });
+    $("verdict").scrollIntoView({ behavior: "smooth", block: "start" });
 
   } catch (e) {
-    $("verdict").className = "banner bad";
-    $("verdict").textContent =
+    showVerdict(false, "확인하지 못했어요",
       (e.name === "NotAllowedError")
-        ? "카메라 사용을 허용해 주셔야 확인할 수 있습니다.\n다시 누르고 「허용」 을 골라주세요."
+        ? "카메라 사용을 허용해 주셔야 확인할 수 있어요. 다시 누르고 「허용」을 골라주세요."
         : (e.name === "NotFoundError")
-        ? "카메라를 찾지 못했습니다.\n선이 잘 꽂혔는지 확인해 주세요."
-        : "확인하지 못했습니다.\n" + (e.message || e.name);
+        ? "카메라를 찾지 못했어요. 선이 잘 꽂혔는지 확인해 주세요."
+        : (e.message || e.name));
+    $("rows").innerHTML = "";
     $("table").innerHTML = "";
     $("report").value = "오류: " + (e.name || "") + " " + (e.message || "") +
                         "\n브라우저: " + navigator.userAgent;
@@ -373,7 +404,7 @@ async function fillCameras() {
     const sel = $("cams");
     const cur = sel.value;
     sel.innerHTML = list
-      .map((d, i) => `<option value="${d.deviceId}">${d.label || ("카메라 " + (i + 1))}</option>`)
+      .map((d, i) => `<option value="${esc(d.deviceId)}">${esc(d.label || ("카메라 " + (i + 1)))}</option>`)
       .join("");
     if (cur) sel.value = cur;
     $("pick").classList.remove("hide");
@@ -382,16 +413,18 @@ async function fillCameras() {
 
 $("go").addEventListener("click", run);
 $("again").addEventListener("click", () => { $("result").classList.add("hide"); run(); });
+$("staffhead").addEventListener("click", () => { $("staff").classList.toggle("open"); });
 $("copy").addEventListener("click", async () => {
   const ta = $("report");
   try {
     await navigator.clipboard.writeText(ta.value);
-    $("copy").textContent = "복사했습니다";
+    $("copy").textContent = "복사했어요";
   } catch (e) {
+    $("staff").classList.add("open");
     ta.select();                       // 클립보드가 막힌 경우 직접 고르게 둔다
     $("copy").textContent = "아래 글을 길게 눌러 복사해 주세요";
   }
-  setTimeout(() => { $("copy").textContent = "결과 복사하기"; }, 2500);
+  setTimeout(() => { $("copy").textContent = "결과 복사"; }, 2500);
 });
 
 // 권한을 받기 전에는 카메라 이름이 안 보이지만, 이미 준 적이 있으면 보인다.

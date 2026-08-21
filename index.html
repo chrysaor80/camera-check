@@ -2,254 +2,375 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!-- 브라우저가 옛 판을 붙들고 있어 고친 것이 반영되지 않는 일이 반복됐다.
      GitHub Pages 가 10분짜리 캐시 머리말을 붙이는데 그건 우리가 못 바꾸므로,
      주소 뒤에 ?v= 를 붙여 나눠주는 것이 확실한 방법이다. 이 표시는 보조다. -->
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <title>얼굴 촬영 시험</title>
+<!-- 글꼴만 바깥에서 가져온다(Pretendard, OFL). 못 받아오면 기기 글꼴로 내려간다.
+     계산과 영상은 여전히 이 기기 밖으로 나가지 않는다. -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <style>
-  /* 한 화면 안에 반드시 들어오게 한다.
+  /* 2026-08-21 디자인 검토에서 채택한 C안(소프트 게이지)을 전 화면에 적용했다.
    *
-   * 대표님 휴대폰에서 아래가 잘렸다. 스크롤은 되지만 노인분들은 화면이
-   * 잘려 있으면 거기서 끝난 줄 안다. 그래서 "넘치면 스크롤" 이 아니라
-   * "넘칠 수 없는 틀" 로 바꿨다.
-   *
-   *   화면 = 100dvh 고정, 위·가운데·아래 세 칸
-   *   글자와 버튼은 clamp() 로 화면에 맞춰 줄어든다
-   *
-   * dvh 를 쓰는 이유는 카카오톡 안에서 주소창이 나타났다 사라지며 높이가
-   * 변하기 때문이다. vh 로 잡으면 그 순간 또 잘린다.
+   *   밝은 지면 · 흰 카드(22px) · 파란 강조 1색 · 알약 버튼 · 반원 게이지
+   *   한 화면 한 질문, 고르면 바로 다음 — 이 구조는 그대로 둔다
+   *   100dvh 고정 틀과 clamp() 축소도 그대로 둔다. 잘린 화면을 끝난 줄 아는
+   *   문제를 원천 차단한 장치라 디자인이 바뀌어도 내려놓지 않는다.
    */
   :root{
-    --ink:#12212e; --muted:#5a6b7b; --line:#cfd8e3; --bg:#edf1f5;
-    --surface:#fff; --brand:#0e6e8c;
-    --ok-bg:#e6f4ec; --ok-ink:#0a6b45;
-    --bad-bg:#fbebe9; --bad-ink:#a4231b;
-    --info-bg:#e8f1f6;
+    --bg:#eef2f7; --ink:#1c2333; --muted:#71798a; --faint:#9aa2b1;
+    --accent:#3d6ef2; --accent-soft:#e8eefc; --card:#fff;
+    --ok-bg:#e7f6ec; --ok:#2fa15c; --ok-ink:#19603a;
+    --bad-bg:#fdebe8; --bad:#d4432e; --bad-ink:#8f2a1c;
+    --track:#e6ebf2; --block:#d7deea; --line:#f0f3f8; --stage:#131720;
+    --shadow:0 2px 8px rgba(28,35,51,.06); --shadow-on:0 4px 14px rgba(61,110,242,.35);
+    --r-card:22px; --r-tile:18px; --r-stage:24px;
   }
   *{box-sizing:border-box}
   html,body{height:100%}
   body{margin:0;overflow:hidden;background:var(--bg);color:var(--ink);
-    font-family:"Malgun Gothic","맑은 고딕","Noto Sans KR",system-ui,sans-serif;
+    font-family:"Pretendard Variable",Pretendard,"Noto Sans KR","Malgun Gothic","맑은 고딕",system-ui,sans-serif;
     line-height:1.5;-webkit-text-size-adjust:100%}
 
-  .screen{position:fixed;inset:0;display:flex;flex-direction:column;
-    background:var(--bg);
-    padding:calc(env(safe-area-inset-top,0px) + 12px) 14px
-            calc(env(safe-area-inset-bottom,0px) + 14px)}
-  /* 스크롤은 화면이 아니라 **안쪽 상자**가 맡는다.
-   *
-   * 처음에 .screen.roll{display:block} 으로 만들었더니 .screen.hide 와
-   * 우선순위가 같아서 뒤에 온 roll 이 이겼다. 숨겨야 할 자세히 화면이
-   * 늘 보였고 position:fixed 라 첫 화면을 덮었다. 클래스끼리 display 를
-   * 다투게 하지 않는 편이 안전하다. */
-  .rollinner{flex:1 1 auto;min-height:0;overflow-y:auto;
-    -webkit-overflow-scrolling:touch}
+  /* ── 틀 ─────────────────────────────────────────────────── */
+  .screen{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--bg);
+    padding:calc(env(safe-area-inset-top,0px) + clamp(12px,2.4vh,28px))
+            clamp(14px,4.5vw,22px)
+            calc(env(safe-area-inset-bottom,0px) + clamp(12px,2vh,22px))}
   .screen.hide{display:none}
-
-  .top{flex:0 0 auto;display:flex;align-items:center;gap:10px;min-height:40px}
+  .top{flex:0 0 auto;display:flex;align-items:center;gap:12px;min-height:34px}
   .mid{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;
-    justify-content:center;gap:clamp(10px,2.4vh,20px)}
-  .bot{flex:0 0 auto;padding-top:clamp(8px,1.6vh,14px)}
+    justify-content:center;gap:clamp(10px,2.2vh,22px)}
+  .bot{flex:0 0 auto;display:flex;flex-direction:column;gap:clamp(6px,1.2vh,10px);
+    padding-top:clamp(8px,1.6vh,14px)}
+  .rollinner{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    display:flex;flex-direction:column;gap:12px;padding-top:14px}
 
-  .step{margin-left:auto;font-size:15px;color:var(--muted);font-weight:700;
-    font-variant-numeric:tabular-nums}
-  .back{width:auto;padding:8px 14px;font-size:15px;font-weight:700;
-    background:transparent;color:var(--muted);border:0;cursor:pointer}
+  .brand{font-size:14px;font-weight:800;letter-spacing:.02em;color:var(--accent)}
+  .ver{margin-left:auto;font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums}
+  .back{width:auto;height:auto;background:none;border:0;padding:6px 0;border-radius:0;
+    font-size:15px;font-weight:700;color:var(--muted);box-shadow:none}
+  .blocks{margin-left:auto;display:flex;gap:5px;align-items:center}
+  .blocks i{width:clamp(18px,7vw,30px);height:8px;border-radius:4px;background:var(--block)}
+  .blocks i.on{background:var(--accent)}
+  .stepno{font-size:14px;font-weight:800;color:var(--muted);font-variant-numeric:tabular-nums}
 
-  h1{font-size:clamp(26px,7vw,40px);margin:0;line-height:1.25;text-wrap:balance}
-  .ask{font-size:clamp(23px,6vw,34px);font-weight:800;margin:0;
-    line-height:1.3;text-wrap:balance}
+  h1{margin:0;font-size:clamp(24px,7.2vw,34px);line-height:1.28;font-weight:800;
+    letter-spacing:-.02em;text-wrap:balance}
+  h1.ask{font-size:clamp(23px,6.6vw,31px);line-height:1.32}
+  h1.small{font-size:22px}
   p{margin:0}
-  .muted{color:var(--muted);font-size:clamp(14px,3.8vw,18px)}
-  .tiny{color:var(--muted);font-size:13px;text-align:center}
+  .lead{font-size:clamp(15px,4.3vw,17.5px);line-height:1.6;color:var(--muted)}
+  .lead b{color:var(--ink)}
+  .hint{font-size:14.5px;color:var(--faint)}
 
-  button{width:100%;border:0;border-radius:14px;
-    padding:clamp(14px,2.4vh,20px);
-    font-size:clamp(19px,5vw,24px);font-weight:800;font-family:inherit;
-    background:var(--brand);color:#fff;cursor:pointer}
-  button.ghost{background:var(--surface);color:var(--brand);
-    border:2px solid var(--brand)}
-  button:active{transform:scale(.98)}
+  .card{background:var(--card);border-radius:var(--r-card);box-shadow:var(--shadow);
+    padding:clamp(12px,2.2vh,18px)}
+  .kicker{margin:0 0 clamp(6px,1.4vh,12px);font-size:13px;font-weight:800;color:var(--accent)}
+  .kicker.faint{color:var(--faint)}
+  .rows{display:flex;flex-direction:column;gap:clamp(6px,1.3vh,11px);
+    font-size:clamp(14.5px,4vw,16px);font-weight:600;line-height:1.4}
+  .rows > div{display:flex;gap:10px;align-items:center}
+  .rows svg{flex:none}
+  .steps{gap:clamp(7px,1.4vh,13px);font-size:clamp(15px,4.3vw,17.5px);line-height:1.45}
+  .steps i{width:26px;height:26px;border-radius:50%;background:var(--accent-soft);
+    color:var(--accent);display:inline-flex;align-items:center;justify-content:center;
+    font-style:normal;font-weight:800;font-size:14px;flex:none}
+  .steps b{color:var(--accent)}
 
-  /* 고르는 버튼. 누르면 다음 화면으로 넘어간다 — 「다음」을 찾을 필요가 없다. */
-  .opts{display:grid;gap:clamp(8px,1.5vh,12px);
-    grid-template-columns:repeat(var(--cols,2),1fr)}
-  .opts button{min-height:clamp(54px,8.4vh,86px);
-    font-size:clamp(19px,5vw,27px);
-    background:var(--surface);color:var(--ink);
-    border:2px solid var(--line);font-variant-numeric:tabular-nums}
-  .opts button.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+  /* 입력 요약 + 고치기 — 하나를 고치려고 뒤로 세 번 가지 않게 */
+  .sum{padding:clamp(2px,.8vh,6px) 18px}
+  .sum .row{display:flex;align-items:center;gap:10px;padding:clamp(6px,1.2vh,10px) 0;
+    border-bottom:1px solid var(--line);font-size:15.5px}
+  .sum .row:last-child{border-bottom:0}
+  .sum .k{color:var(--faint);width:60px}
+  .sum .fix{margin-left:auto;width:auto;height:auto;padding:6px 0 6px 12px;border-radius:0;
+    background:none;box-shadow:none;font-size:13.5px;font-weight:700;color:var(--accent)}
 
-  .stage{position:relative;flex:1 1 auto;min-height:0;background:#0d1418;
-    border-radius:14px;overflow:hidden}
+  /* ── 버튼 ───────────────────────────────────────────────── */
+  button{width:100%;border:0;border-radius:999px;height:clamp(52px,8vh,62px);
+    font-family:inherit;font-weight:800;font-size:clamp(17px,4.8vw,20px);line-height:1;
+    background:var(--accent);color:#fff;cursor:pointer}
+  button.soft{background:var(--card);color:var(--ink);box-shadow:var(--shadow);
+    font-weight:700;font-size:clamp(15px,4.2vw,16px);height:clamp(46px,7vh,52px)}
+  button.ghost{background:none;color:var(--muted);box-shadow:none;font-weight:600;
+    font-size:15px;height:42px}
+  button.locked{background:var(--block);color:var(--faint);box-shadow:none}
+  button:active:not(.locked):not(.back){transform:scale(.98)}
+  .row2{display:flex;gap:10px}
+  .row2 > *{flex:1}
+  .row2 > .wide{flex:1.5}
+
+  /* 고르는 칸. 누르면 다음 화면으로 넘어간다 — 「다음」을 찾을 필요가 없다 */
+  .opts{display:grid;gap:clamp(8px,1.5vh,11px);grid-template-columns:repeat(var(--cols,2),1fr)}
+  .opts button{height:auto;min-height:clamp(52px,8.4vh,76px);border-radius:var(--r-tile);
+    background:var(--card);color:var(--ink);box-shadow:var(--shadow);font-weight:700;
+    font-size:clamp(18px,5vw,22px);font-variant-numeric:tabular-nums;padding:6px}
+  .opts button.on{background:var(--accent);color:#fff;box-shadow:var(--shadow-on);font-weight:800}
+
+  /* ── 촬영 ───────────────────────────────────────────────── */
+  .stage{position:relative;flex:1 1 auto;min-height:0;background:var(--stage);
+    border-radius:var(--r-stage);overflow:hidden}
   .stage video{width:100%;height:100%;object-fit:contain;transform:scaleX(-1)}
   .stage canvas{position:absolute;inset:0;width:100%;height:100%}
+  .side{flex:0 0 auto;display:flex;flex-direction:column;gap:10px}
+  .status{display:flex;align-items:center;gap:10px;background:var(--card);border-radius:16px;
+    box-shadow:var(--shadow);padding:clamp(10px,1.8vh,13px) 16px;
+    font-size:clamp(14.5px,4.2vw,16px);font-weight:700}
+  .status svg{flex:none}
+  .status.flash{animation:flash .55s}
+  @keyframes flash{0%,100%{box-shadow:var(--shadow)}50%{box-shadow:0 0 0 3px var(--bad)}}
+  .count{display:flex;align-items:baseline;gap:10px}
+  .count b{font-size:clamp(60px,20vw,88px);line-height:.95;font-weight:800;
+    letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+  .count span{font-size:20px;font-weight:700;color:var(--muted)}
+  .bar{height:12px;border-radius:6px;background:var(--track);overflow:hidden;
+    margin-top:clamp(8px,1.6vh,14px)}
+  .bar i{display:block;height:100%;width:0;border-radius:6px;background:var(--accent);transition:width .3s}
+  .calm{margin:clamp(8px,1.6vh,14px) 0 0;font-size:18px;font-weight:700;line-height:1.5}
+  .calm small{display:block;font-weight:500;font-size:15px;color:var(--faint)}
 
-  .bar{height:12px;background:var(--line);border-radius:6px;overflow:hidden}
-  .bar > i{display:block;height:100%;width:0;background:var(--brand);transition:width .3s}
-
-  .banner{border-radius:12px;padding:clamp(10px,2vh,16px);font-weight:700;
-    white-space:pre-line;font-size:clamp(15px,4vw,19px)}
-  .banner.ok{background:var(--ok-bg);color:var(--ok-ink)}
-  .banner.bad{background:var(--bad-bg);color:var(--bad-ink)}
-  .banner.info{background:var(--info-bg);color:var(--brand)}
-
-  /* 결과는 네 칸으로 채운다. 표도 파형도 여기 두지 않는다. */
-  .four{flex:1 1 auto;min-height:0;display:grid;gap:clamp(8px,1.5vh,12px);
-    grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
-  .four div{background:var(--surface);border:1px solid var(--line);
-    border-radius:14px;display:flex;flex-direction:column;
-    align-items:center;justify-content:center;gap:2px;padding:6px}
-  .four b{font-size:clamp(30px,9vw,52px);color:var(--brand);line-height:1.1;
+  /* ── 결과 ───────────────────────────────────────────────── */
+  .verdict{display:flex;align-items:center;gap:12px;padding:clamp(12px,2vh,16px) 18px}
+  .verdict svg{flex:none}
+  .verdict b{display:block;font-size:clamp(17px,4.8vw,19px);font-weight:800}
+  .verdict p{margin:2px 0 0;font-size:13.5px;color:var(--muted)}
+  .four{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:1fr 1fr;
+    grid-template-rows:1fr 1fr;gap:clamp(8px,1.6vh,12px)}
+  .four .c{background:var(--card);border-radius:var(--r-card);box-shadow:var(--shadow);
+    padding:clamp(10px,1.8vh,16px) 14px clamp(8px,1.4vh,14px);display:flex;flex-direction:column;
+    align-items:center;justify-content:space-between;min-height:0}
+  .four .lab{font-size:14px;font-weight:700;color:var(--muted);align-self:flex-start}
+  .four .lab small{font-size:11px;color:var(--faint);font-weight:600}
+  .four svg.g{width:clamp(86px,30vw,118px);height:auto}
+  .four .val{display:flex;align-items:baseline;gap:4px;margin-top:clamp(-30px,-8vw,-22px)}
+  .four .val b{font-size:clamp(26px,8vw,34px);font-weight:800;line-height:1.1;
     font-variant-numeric:tabular-nums}
-  .four em{font-style:normal;font-size:clamp(13px,3.4vw,17px);font-weight:700}
-  .four span{font-size:clamp(12px,3.2vw,15px);color:var(--muted);text-align:center}
+  .four .val span{font-size:12.5px;font-weight:600;color:var(--faint)}
+  .four .rng{font-size:12px;color:var(--faint);text-align:center;line-height:1.35}
+  .four .c.bp{align-items:flex-start}
+  .four .c.bp .val{margin-top:0}
+  .four .c.bp .val b{font-size:clamp(24px,7.4vw,31px)}
+  .four .c.bp .rng{text-align:left}
+  .four .c.msg{grid-column:1/-1;grid-row:1/-1;align-items:flex-start;justify-content:center}
+  .four .c.msg em{font-style:normal;font-size:clamp(17px,4.6vw,22px);font-weight:700;
+    white-space:pre-line;line-height:1.6}
+  .fun{margin:clamp(8px,1.6vh,14px) 4px clamp(6px,1.2vh,12px);font-size:13.5px;font-weight:600;
+    line-height:1.5;color:#8b93a3;text-align:center}
 
-  .wave{width:100%;height:110px;background:#f7f9fb;border:1px solid var(--line);
-    border-radius:10px;display:block}
+  /* ── 자세히 ─────────────────────────────────────────────── */
+  .chip{display:flex;align-items:center;gap:9px;border-radius:16px;padding:12px 16px;
+    font-size:15px;font-weight:700;white-space:pre-line;line-height:1.45}
+  .chip.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .chip.info{background:var(--accent-soft);color:#2a4db0}
+  .chip.bad{background:var(--bad-bg);color:var(--bad-ink)}
+  .wave{display:block;width:100%;height:76px}
+  .cap{margin:6px 0 0;font-size:12px;color:var(--faint)}
+  .tbl{padding:8px 18px}
   table{width:100%;border-collapse:collapse;font-size:14px}
-  th,td{text-align:left;padding:8px 4px;border-bottom:1px solid var(--line)}
-  th{color:var(--muted);font-weight:600;width:50%}
-  .card{background:var(--surface);border:1px solid var(--line);
-    border-radius:14px;padding:18px;margin:0 0 12px}
-  .row{display:flex;gap:10px}
-  .row > *{flex:1}
+  th,td{padding:8px 0;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{color:var(--faint);font-weight:500;width:40%}
+  td{font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+  tr:last-child th,tr:last-child td{border-bottom:0}
+  .muted{color:var(--faint);font-weight:500}
+  .staff{padding:0;overflow:hidden;margin-top:auto}
+  .staff .head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;
+    cursor:pointer;font-size:14.5px;font-weight:800;color:var(--muted)}
+  .staff .head span{color:var(--faint);font-size:15px;transition:transform .2s}
+  .staff.open .head span{transform:rotate(90deg)}
+  .staff .body{display:none;padding:0 18px 16px}
+  .staff.open .body{display:block}
+  .staff .note{font-size:12.5px;color:var(--faint);line-height:1.55;margin:0 0 10px}
+  .staff .opts{margin-bottom:10px}
+  .staff .opts button{min-height:48px;font-size:16px}
+  .staff button.soft{margin-top:8px;height:48px}
+  .tiny{font-size:12.5px;color:var(--faint);text-align:center;margin-top:6px}
+
+  .poster{display:none}
   .hide{display:none}
-  a{color:var(--brand)}
-  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+  a{color:var(--accent)}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+  /* ── 키오스크(태블릿 가로) — 2i·2j ──────────────────────── */
+  @media (min-width:860px) and (orientation:landscape){
+    .screen{padding:36px}
+    #s-intro{display:grid;grid-template-columns:1fr 1.1fr;grid-template-rows:auto 1fr auto;
+      column-gap:32px}
+    #s-intro.hide{display:none}
+    #s-intro .top,#s-intro .mid,#s-intro .bot{grid-column:1}
+    #s-intro h1{font-size:52px;line-height:1.2}
+    #s-intro .lead{font-size:19px}
+    #s-intro .poster{display:block;grid-column:2;grid-row:1/4;background:var(--stage);
+      border-radius:26px;position:relative;overflow:hidden}
+    #s-intro .poster svg{position:absolute;inset:0;width:100%;height:100%}
+    #s-intro button{height:72px;font-size:24px}
+    #s-run .mid{flex-direction:row;gap:32px;align-items:stretch}
+    #s-run .stage{flex:1.25 1 0;border-radius:26px}
+    #s-run .side{flex:1 1 0;justify-content:center}
+    #s-run .count b{font-size:138px;line-height:.9;letter-spacing:-.04em}
+    #s-run .count span{font-size:24px}
+    #s-run .calm{font-size:22px}
+    #s-run .calm small{font-size:17px}
+  }
 </style>
 </head>
 <body>
 
-<!-- 1. 시작 -->
+<!-- 1. 시작 (2a) -->
 <div id="s-intro" class="screen">
-  <div class="top"><span class="step" id="ver"></span></div>
+  <div class="top"><span class="brand">얼굴 촬영 시험</span><span class="ver" id="ver"></span></div>
   <div class="mid">
     <h1>얼굴을 찍어<br>몸 상태를 봅니다</h1>
-    <p class="muted">얼굴을 <b>40초</b> 동안 찍습니다.<br>
-       사진도 영상도 남기지 않습니다.</p>
+    <p class="lead">얼굴을 <b>40초</b> 동안 찍어서<br>네 가지 값을 보여드려요.</p>
+    <div class="card">
+      <p class="kicker">세 가지 약속</p>
+      <div class="rows">
+        <div><svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="10" fill="#e7f6ec"/><path d="M6 10.3l2.7 2.7 5.3-5.5" stroke="#2fa15c" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>사진도 영상도 저장하지 않아요</div>
+        <div><svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="10" fill="#e7f6ec"/><path d="M6 10.3l2.7 2.7 5.3-5.5" stroke="#2fa15c" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>인터넷으로 보내지 않아요</div>
+        <div><svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="10" fill="#e7f6ec"/><path d="M6 10.3l2.7 2.7 5.3-5.5" stroke="#2fa15c" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>결과는 이 화면에서 보고 끝나요</div>
+      </div>
+    </div>
   </div>
   <div class="bot">
-    <button id="go">시작합니다</button>
-    <p class="tiny" style="margin-top:12px">
-      <a href="check.html">카메라 성능만 확인하기</a>
-    </p>
+    <button id="go">시작하기</button>
+    <a href="check.html" class="ghost" style="display:flex;align-items:center;justify-content:center;height:42px;font-size:15px;font-weight:600;color:var(--muted);text-decoration:none">카메라 성능만 확인하기</a>
+  </div>
+  <div class="poster" aria-hidden="true">
+    <svg viewBox="0 0 400 340"><ellipse cx="200" cy="168" rx="88" ry="120" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="3" stroke-dasharray="1 14" stroke-linecap="round"/></svg>
   </div>
 </div>
 
-<!-- 2~5. 사전 입력. 누르면 바로 다음 화면으로 넘어간다 -->
+<!-- 2~5. 사전 입력 (2b). 누르면 바로 다음 화면으로 넘어간다 -->
 <div id="s-sex" class="screen hide">
   <div class="top"><button class="back" data-back="s-intro">← 뒤로</button>
-    <span class="step">1 / 4</span></div>
+    <span class="blocks"><i class="on"></i><i></i><i></i><i></i></span><span class="stepno">1/4</span></div>
   <div class="mid">
-    <p class="ask">남자세요,<br>여자세요?</p>
+    <h1 class="ask">남자세요,<br>여자세요?</h1>
     <div class="opts" id="p-sex" style="--cols:2"></div>
+    <p class="hint">누르시면 바로 다음으로 넘어가요</p>
   </div>
 </div>
 
 <div id="s-age" class="screen hide">
   <div class="top"><button class="back" data-back="s-sex">← 뒤로</button>
-    <span class="step">2 / 4</span></div>
+    <span class="blocks"><i class="on"></i><i class="on"></i><i></i><i></i></span><span class="stepno">2/4</span></div>
   <div class="mid">
-    <p class="ask">나이가<br>어떻게 되세요?</p>
+    <h1 class="ask">나이가<br>어떻게 되세요?</h1>
     <div class="opts" id="p-age" style="--cols:3"></div>
+    <p class="hint">누르시면 바로 다음으로 넘어가요</p>
   </div>
 </div>
 
 <div id="s-hei" class="screen hide">
   <div class="top"><button class="back" data-back="s-age">← 뒤로</button>
-    <span class="step">3 / 4</span></div>
+    <span class="blocks"><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span><span class="stepno">3/4</span></div>
   <div class="mid">
-    <p class="ask">키가 몇이세요?</p>
-    <p class="muted">가까운 것을 누르시면 됩니다 (cm)</p>
+    <h1 class="ask">키가 몇이세요?</h1>
+    <p class="lead">가까운 것을 누르시면 돼요 (cm)</p>
     <div class="opts" id="p-hei" style="--cols:4"></div>
   </div>
 </div>
 
 <div id="s-wei" class="screen hide">
   <div class="top"><button class="back" data-back="s-hei">← 뒤로</button>
-    <span class="step">4 / 4</span></div>
+    <span class="blocks"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span><span class="stepno">4/4</span></div>
   <div class="mid">
-    <p class="ask">몸무게가<br>몇이세요?</p>
-    <p class="muted">가까운 것을 누르시면 됩니다 (kg)</p>
+    <h1 class="ask">몸무게가<br>몇이세요?</h1>
+    <p class="lead">가까운 것을 누르시면 돼요 (kg)</p>
     <div class="opts" id="p-wei" style="--cols:4"></div>
   </div>
 </div>
 
-<!-- 6. 자세 안내 -->
+<!-- 6. 자세 안내 + 입력 요약 (2c) -->
 <div id="s-tip" class="screen hide">
   <div class="top"><button class="back" data-back="s-wei">← 뒤로</button></div>
   <div class="mid">
-    <p class="ask">이렇게 해주세요</p>
-    <p style="font-size:clamp(18px,4.8vw,24px);line-height:1.9">
-      밝은 곳에 앉으세요<br>
-      얼굴을 동그라미 안에 맞추세요<br>
-      <b>40초 동안 가만히</b> 계세요<br>
-      말씀은 하지 마세요
-    </p>
+    <h1 class="ask">이렇게 해주세요</h1>
+    <div class="card rows steps">
+      <div><i>1</i>밝은 곳에 앉으세요</div>
+      <div><i>2</i>얼굴을 동그라미 안에 맞추세요</div>
+      <div><i>3</i><span><b>40초 동안 가만히</b> 계세요</span></div>
+      <div><i>4</i>말씀은 하지 마세요</div>
+    </div>
+    <div class="card sum">
+      <p class="kicker faint" style="margin:10px 0 2px">입력하신 내용</p>
+      <div class="row"><span class="k">성별</span><b id="sum-sex">—</b><button class="fix" data-edit="s-sex">고치기</button></div>
+      <div class="row"><span class="k">나이</span><b id="sum-age">—</b><button class="fix" data-edit="s-age">고치기</button></div>
+      <div class="row"><span class="k">키</span><b id="sum-hei">—</b><button class="fix" data-edit="s-hei">고치기</button></div>
+      <div class="row"><span class="k">몸무게</span><b id="sum-wei">—</b><button class="fix" data-edit="s-wei">고치기</button></div>
+    </div>
   </div>
   <div class="bot"><button id="ready">준비됐어요</button></div>
 </div>
 
-<!-- 7. 촬영 -->
+<!-- 7. 촬영 (2d·2e) -->
 <div id="s-run" class="screen hide">
   <div class="top"><button class="back" id="stop">← 그만두기</button></div>
-  <div class="mid" style="gap:10px">
+  <div class="mid">
     <div class="stage">
       <video id="v" playsinline muted autoplay></video>
       <canvas id="ov"></canvas>
     </div>
-    <div id="align">
-      <p class="muted" style="text-align:center;margin-bottom:8px">
-        얼굴을 동그라미에 맞춰주세요
-      </p>
-      <div class="row" style="margin-bottom:8px">
-        <button id="smaller" class="ghost">동그라미 작게</button>
-        <button id="bigger"  class="ghost">동그라미 크게</button>
+    <div class="side">
+      <div id="align" class="hide">
+        <div class="status" id="skinline"><span id="skinicon"></span><span id="skintext">얼굴을 동그라미에 맞춰주세요</span></div>
+        <div class="row2" style="margin-top:10px">
+          <button id="smaller" class="soft">− 동그라미 작게</button>
+          <button id="bigger"  class="soft">＋ 동그라미 크게</button>
+        </div>
+        <button id="begin" class="locked" style="margin-top:10px">이대로 찍기</button>
       </div>
-      <button id="begin">이대로 찍습니다</button>
-    </div>
-    <div id="capture" class="hide">
-      <div class="bar"><i id="prog"></i></div>
-      <p id="status" style="text-align:center;font-weight:800;
-         font-size:clamp(19px,5vw,26px);margin-top:10px">준비 중</p>
+      <div id="capture" class="card hide">
+        <div class="count hide" id="countwrap"><b id="count">40</b><span>초 남음</span></div>
+        <div class="bar"><i id="prog"></i></div>
+        <p class="calm"><span id="status">준비 중</span><small id="calmsub"></small></p>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- 8. 결과. 네 값만 보여준다 -->
+<!-- 8. 결과 (2f). 네 값만 보여준다 -->
 <div id="s-out" class="screen hide">
-  <div class="top"><span class="step" id="verdict"></span></div>
-  <div class="four" id="four"></div>
-  <div class="bot">
-    <p class="tiny" style="margin-bottom:10px">재미로 보는 결과입니다.</p>
-    <div class="row">
-      <button id="detail" class="ghost">자세히</button>
-      <button id="again">다시 하기</button>
-    </div>
+  <div class="top"><span class="brand">결과</span></div>
+  <div class="card verdict" style="margin-top:10px">
+    <span id="vicon"></span>
+    <div><b id="verdict">—</b><p id="vsub"></p></div>
+  </div>
+  <div class="four" id="four" style="margin-top:clamp(8px,1.6vh,14px)"></div>
+  <p class="fun">재미로 보는 결과입니다.</p>
+  <div class="row2">
+    <button id="detail" class="soft" style="height:clamp(52px,8vh,58px);font-size:17.5px">자세히</button>
+    <button id="again" class="wide" style="height:clamp(52px,8vh,58px);font-size:17.5px">다시 하기</button>
   </div>
 </div>
 
-<!-- 9. 자세히. 저희가 보는 화면이라 여기만 스크롤을 허용한다 -->
+<!-- 9. 자세히 (2g). 손님 구역 / 스태프 구역 -->
 <div id="s-diag" class="screen hide">
-  <div class="rollinner"><div class="card">
-    <div id="verdict2" class="banner"></div>
-    <canvas id="wave2" class="wave" style="height:130px;margin-top:12px"></canvas>
-    <p class="tiny" style="margin-top:6px">뽑아낸 맥박 파형</p>
-    <h2 style="font-size:17px;margin:18px 0 8px">이번 촬영</h2>
-    <table id="tbl"></table>
-    <h2 style="font-size:17px;margin:20px 0 6px">고치는 데 쓸 자료</h2>
-    <p class="muted" style="margin-bottom:8px">
-      방금 40초 동안 <b>숨을 몇 번</b> 쉬셨는지 아시면 골라주세요.
-    </p>
-    <div class="opts" id="p-brt" style="--cols:4;margin-bottom:10px"></div>
-    <button id="save" class="ghost">원시 신호 파일로 저장</button>
-    <p class="tiny" id="savenote" style="margin-top:6px"></p>
-    <button id="copy" class="ghost" style="margin-top:8px">결과 복사하기</button>
-    <button id="closeDetail" style="margin-top:14px">돌아가기</button>
-  </div></div>
+  <div class="top"><h1 class="small">자세히 보기</h1><button class="back" id="closeDetail" style="margin-left:auto">← 돌아가기</button></div>
+  <div class="rollinner">
+    <div id="verdict2" class="chip"></div>
+    <div class="card" style="padding:16px 16px 12px">
+      <canvas id="wave2" class="wave"></canvas>
+      <p class="cap">뽑아낸 맥박 파형 (앞 8초)</p>
+    </div>
+    <div class="card tbl">
+      <p class="kicker faint" style="margin:8px 0 2px;font-size:12.5px">이번 촬영</p>
+      <table id="tbl"></table>
+    </div>
+    <div class="card staff" id="staff">
+      <div class="head" id="staffhead">스태프 전용 · 자료 수집<span>▸</span></div>
+      <div class="body">
+        <p class="note">방금 40초 동안 실제로 숨을 몇 번 쉬셨는지 고르고 저장하세요.
+          호흡 계산을 고치는 데 이 값이 꼭 필요합니다.</p>
+        <div class="opts" id="p-brt" style="--cols:4"></div>
+        <button id="save" class="soft">원시 신호 파일로 저장</button>
+        <p class="tiny" id="savenote"></p>
+        <button id="copy" class="soft">결과 복사하기</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <canvas id="samp" width="192" height="144" class="hide"></canvas>
@@ -258,11 +379,43 @@
 "use strict";
 // 화면에 박아두는 판 번호. 브라우저가 옛 페이지를 들고 있으면 결과가
 // 옛 형식으로 오는데, 그때 어느 판을 보고 있는지 바로 알기 위한 것이다.
-const VERSION = "2026-08-21 · 화면판 24";
+const VERSION = "2026-08-21 · 화면판 25";
 
 const $ = id => document.getElementById(id);
 const V=$("v"), OV=$("ov"), SAMP=$("samp"), SCX=SAMP.getContext("2d",{willReadFrequently:true});
 $("ver").textContent = VERSION.replace("2026-08-21 · ", "");
+
+// 상태·판정 아이콘. 우리가 쓴 고정 문자열이라 innerHTML 로 넣어도 된다.
+const ICON_OK = '<svg viewBox="0 0 20 20" width="22" height="22"><circle cx="10" cy="10" r="10" fill="#e7f6ec"/><path d="M6 10.3l2.7 2.7 5.3-5.5" stroke="#2fa15c" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const ICON_BAD = '<svg viewBox="0 0 20 20" width="22" height="22"><circle cx="10" cy="10" r="10" fill="#fdebe8"/><path d="M6.6 6.6l6.8 6.8M13.4 6.6l-6.8 6.8" stroke="#d4432e" stroke-width="2.2" stroke-linecap="round"/></svg>';
+const ICON_OK_BIG = '<svg viewBox="0 0 40 40" width="40" height="40"><circle cx="20" cy="20" r="20" fill="#e7f6ec"/><path d="M12 20.5l5.5 5.5L28 15" stroke="#2fa15c" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const ICON_WARN_BIG = '<svg viewBox="0 0 40 40" width="40" height="40"><circle cx="20" cy="20" r="20" fill="#fff4e0"/><path d="M20 11v11M20 27.5v1" stroke="#d98a0c" stroke-width="3" stroke-linecap="round"/></svg>';
+const ICON_BAD_BIG = '<svg viewBox="0 0 40 40" width="40" height="40"><circle cx="20" cy="20" r="20" fill="#fdebe8"/><path d="M13 13l14 14M27 13L13 27" stroke="#d4432e" stroke-width="3" stroke-linecap="round"/></svg>';
+
+/**
+ * 결과 칸 하나. 반원 게이지는 값이 참고 범위의 어디쯤인지만 보여준다.
+ * 숫자 72 만 있으면 좋은지 나쁜지 감이 없다는 검토 의견을 반영한 것이다.
+ * 반지름 42 짜리 반원의 길이가 132 라 dasharray 의 둘째 값이 132 다.
+ */
+function gaugeCell(label, val, unit, range, frac){
+  const f = Math.max(0, Math.min(1, isFinite(frac) ? frac : 0));
+  const dash = (f*132).toFixed(1) + " 132";
+  return '<div class="c"><span class="lab">' + label + '</span>' +
+    '<svg class="g" viewBox="0 0 100 56"><path d="M8 50 A42 42 0 0 1 92 50" fill="none" stroke="#e6ebf2" stroke-width="9" stroke-linecap="round"/>' +
+    '<path d="M8 50 A42 42 0 0 1 92 50" fill="none" stroke="#3d6ef2" stroke-width="9" stroke-linecap="round" stroke-dasharray="' + dash + '"/></svg>' +
+    '<div class="val"><b>' + val + '</b><span>' + unit + '</span></div>' +
+    '<span class="rng">' + range + '</span></div>';
+}
+
+/** 자리 맞추기 상태줄과 시작 버튼 잠금. 칸 셋이 전부 피부 위여야 풀린다. */
+function updateAlign(n){
+  const ok = n === 3;
+  $("skinicon").innerHTML = ok ? ICON_OK : ICON_BAD;
+  $("skintext").textContent = ok
+    ? "좋아요, 세 칸 모두 피부 위에 있어요"
+    : "빨간 칸을 피부 위로 옮겨주세요 (" + n + "/3)";
+  $("begin").classList.toggle("locked", !ok);
+}
 
 /**
  * 화면을 하나만 띄운다.
@@ -275,6 +428,7 @@ function goTo(id){
   for(let i=0;i<all.length;i++) all[i].classList.add("hide");
   $(id).classList.remove("hide");
   window.scrollTo(0,0);
+  if(id === "s-tip") fillSummary();
 }
 goTo("s-intro");   // 표시가 어긋나 있어도 첫 화면 하나만 남긴다
 
@@ -809,6 +963,19 @@ function clearPicked(id){
   const box = $(id); if(!box) return;
   Array.prototype.forEach.call(box.children, function(c){ c.className = ""; });
 }
+let editReturn = null;   // 요약 화면의 「고치기」로 들어왔을 때 돌아갈 곳
+function fillSummary(){
+  $("sum-sex").textContent = me.sex || "—";
+  $("sum-age").textContent = me.age ? me.age + "대" : "—";
+  $("sum-hei").textContent = me.height ? me.height + " cm" : "—";
+  $("sum-wei").textContent = me.weight ? me.weight + " kg" : "—";
+}
+// 입력 하나를 고치려고 뒤로 세 번 가게 하지 않는다. 고치면 요약으로 돌아온다.
+document.querySelectorAll(".fix[data-edit]").forEach(function(b){
+  b.addEventListener("click", function(){
+    editReturn = "s-tip"; goTo(b.getAttribute("data-edit"));
+  });
+});
 
 function picker(id, key, values, fmt, next){
   const box = $(id);
@@ -823,7 +990,8 @@ function picker(id, key, values, fmt, next){
       Array.prototype.forEach.call(box.children, function(c){ c.className = ""; });
       b.className = "on";
       // 「다음」 버튼을 따로 찾게 하지 않는다. 고른 것이 곧 다음이다.
-      if(next) setTimeout(function(){ goTo(next); }, 160);
+      const dest = editReturn || next; editReturn = null;
+      if(dest) setTimeout(function(){ goTo(dest); }, 160);
     });
     box.appendChild(b);
   });
@@ -898,10 +1066,9 @@ function drawGuide(){
   }
   skinCount = onSkin;
 
-  const label = onSkin === 3
-    ? "좋습니다. 이대로 두세요"
-    : "세 칸이 모두 초록이 되게 맞추세요 (" + onSkin + "/3)";
-  cx.font = "bold 15px system-ui, sans-serif";
+  updateAlign(onSkin);
+  const label = "얼굴을 동그라미에 맞춰주세요";
+  cx.font = "600 15px 'Pretendard Variable', Pretendard, 'Noto Sans KR', system-ui, sans-serif";
   cx.textAlign = "center";
   const lx = r.x + r.w*0.5, ly = r.y + Math.max(18, r.h*0.06);
   cx.lineWidth = 4; cx.strokeStyle = "rgba(0,0,0,.6)"; cx.strokeText(label, lx, ly);
@@ -1054,11 +1221,13 @@ function drawWave(canvas, data, color){
 async function start(){
   goTo("s-run");
   $("status").textContent = "카메라를 켜는 중";
+  $("calmsub").textContent = "";
   $("prog").style.width = "0%";
   $("align").classList.add("hide");
-  $("capture").classList.add("hide");
-  frames = []; running = true; maxGap = 0; warned = false;
-  $("begin").textContent = "이대로 찍습니다";
+  $("capture").classList.remove("hide");
+  $("countwrap").classList.add("hide");
+  frames = []; running = true; maxGap = 0;
+  $("begin").classList.add("locked");
   // 지난 촬영의 것이 이번 것으로 둔갑하지 않게. 실제 호흡 횟수는 이번 40초의
   // 것이어야 하고, 파일은 이번 신호여야 한다. 전에는 둘 다 그대로 남았다.
   lastRaw = null; window.__report = null;
@@ -1078,17 +1247,13 @@ async function start(){
   await V.play().catch(function(){});
   const track = stream.getVideoTracks()[0];
 
-  // 검은 여백을 없애고 화면을 카메라 비율에 맞춘다. 4:3 틀에 16:9 를 넣으면
-  // 위아래가 검게 잘리고 영상이 작아져서 타원을 맞추기 어려웠다.
-  if(V.videoWidth && V.videoHeight)
-    document.querySelector(".stage").style.aspectRatio = V.videoWidth + "/" + V.videoHeight;
-
   drawGuide();
   $("status").textContent = "밝기를 맞추는 중";
   const exp = await lockExposure(track);
   if(!running) return;
 
   // 자리를 맞출 시간을 준다. 여기서 타원 크기를 바꿀 수 있다.
+  $("capture").classList.add("hide");
   $("align").classList.remove("hide");
   const tick = setInterval(function(){ if(running) drawGuide(); }, 250);
   const ok = await new Promise(function(resolve){
@@ -1101,11 +1266,16 @@ async function start(){
   $("capture").classList.remove("hide");
 
   for(let c=3;c>0 && running;c--){
-    $("status").textContent = "곧 시작합니다 · " + c;
+    $("status").textContent = "곧 시작해요 · " + c;
     drawGuide();
     await new Promise(r=>setTimeout(r,1000));
   }
   if(!running) return;
+  // 남은 시간이 주인공이다. 40초를 버티게 하는 유일한 동기인데 예전에는
+  // 작은 상태 글자였다.
+  $("countwrap").classList.remove("hide");
+  $("status").textContent = "가만히 계세요";
+  $("calmsub").textContent = "말씀하지 말고, 화면을 바꾸지 마세요";
 
   // 시계는 **첫 장이 실제로 들어온 순간**부터 센다. 설정을 바꾸면 카메라가
   // 다시 준비하느라 몇 초씩 아무것도 안 보내는데, 그 빈 시간이 촬영 시간에서
@@ -1127,7 +1297,7 @@ async function start(){
     }
     frames.push({ t:t, roi: sampleFrame() });
     $("prog").style.width = Math.min(100, t/SECONDS*100) + "%";
-    $("status").textContent = "촬영 중 · " + Math.ceil(SECONDS - t) + "초 남음";
+    $("count").textContent = Math.ceil(SECONDS - t);
     if(frames.length % 15 === 0) drawGuide();
     useVFC ? V.requestVideoFrameCallback(grab)
            : requestAnimationFrame(function(){ grab(performance.now()); });
@@ -1162,16 +1332,16 @@ function finish(exp){
  * 밀려나 화면 밖으로 나갔다. 노인분들은 잘린 화면을 끝난 줄 안다.
  */
 function showFail(msg){
+  $("vicon").innerHTML = ICON_BAD_BIG;
   $("verdict").textContent = "다시 해주세요";
+  $("vsub").textContent = "";
   // 예외 문구가 섞일 수 있는 글은 innerHTML 로 넣지 않는다. 글은 글로만 들어간다.
   const box = $("four"); box.innerHTML = "";
-  const wrap = document.createElement("div");
-  wrap.style.gridColumn = "1/-1"; wrap.style.gridRow = "1/-1";
+  const wrap = document.createElement("div"); wrap.className = "c msg";
   const em = document.createElement("em");
-  em.style.cssText = "font-size:clamp(17px,4.6vw,22px);white-space:pre-line;line-height:1.7";
   em.textContent = msg;
   wrap.appendChild(em); box.appendChild(wrap);
-  $("verdict2").className = "banner bad";
+  $("verdict2").className = "chip bad";
   $("verdict2").textContent = msg;
   $("tbl").innerHTML = "";
   drawWave($("wave2"), [], "#0e6e8c");          // 지난 촬영의 파형이 남지 않게
@@ -1184,6 +1354,7 @@ function showFail(msg){
 function compute(exp){
   running = false;
   $("status").textContent = "계산 중";
+  $("calmsub").textContent = "";
   const times = frames.map(f=>f.t);
   const secs = times[times.length-1] - times[0];
   fpsInfo = { n: frames.length, fps: frames.length/secs };
@@ -1228,18 +1399,21 @@ function compute(exp){
   const choppy = maxGap > 1.0;
   const good   = hr.peakShare >= 0.30 && hr.spread <= 6 && !atEdge && !slow && !choppy;
 
-  let why = [];
-  if(atEdge) why.push("봉우리가 찾는 범위의 끝에 걸렸습니다. 맥박이 아니라 조명이나 몸의 흔들림일 수 있습니다.");
-  if(slow)   why.push("초당 " + fpsInfo.fps.toFixed(1) + "장밖에 못 찍었습니다. 다른 창을 닫고 다시 해보세요.");
-  if(choppy) why.push("촬영이 " + maxGap.toFixed(1) + "초 끊겼습니다. 다른 창으로 가지 말고 이 화면을 열어둔 채로 해주세요.");
-  if(!exp.locked) why.push("밝기가 고정되지 않았습니다. 카메라가 밝기를 조절하면서 신호를 지웁니다.");
-  if(hr.peakShare < 0.30) why.push("봉우리가 뚜렷하지 않습니다. 더 밝은 곳에서 해보세요.");
+  // 긴 사연은 「자세히」에, 결과 카드에는 짧게
+  let why = [], shortWhy = [];
+  if(atEdge){ why.push("봉우리가 찾는 범위의 끝에 걸렸어요. 맥박이 아니라 조명이나 몸의 흔들림일 수 있어요."); shortWhy.push("봉우리가 범위 끝에 걸렸어요"); }
+  if(slow){   why.push("초당 " + fpsInfo.fps.toFixed(1) + "장밖에 못 찍었어요. 다른 창을 닫고 다시 해보세요."); shortWhy.push("장수가 모자랐어요"); }
+  if(choppy){ why.push("촬영이 " + maxGap.toFixed(1) + "초 끊겼어요. 다른 창으로 가지 말고 이 화면을 열어둔 채로 해주세요."); shortWhy.push("촬영이 끊겼어요"); }
+  if(!exp.locked){ why.push("밝기가 고정되지 않았어요. 카메라가 밝기를 조절하면서 신호를 지워요."); shortWhy.push("밝기가 고정되지 않았어요"); }
+  if(hr.peakShare < 0.30){ why.push("봉우리가 뚜렷하지 않아요. 더 밝은 곳에서 해보세요."); shortWhy.push("봉우리가 흐릿해요"); }
 
-  $("verdict2").className = "banner " + (good ? "ok" : "info");
+  $("verdict2").className = "chip " + (good ? "ok" : "info");
   $("verdict2").textContent = good
-    ? "잘 잡혔습니다."
-    : "이 값은 믿기 어렵습니다.\n" + why.join("\n");
-  $("verdict").textContent = good ? "잘 나왔습니다" : "값이 흔들렸습니다";
+    ? "잘 잡혔어요 · 봉우리 뚜렷함 " + hr.peakShare.toFixed(2)
+    : "이 값은 믿기 어려워요\n" + why.join("\n");
+  $("vicon").innerHTML = good ? ICON_OK_BIG : ICON_WARN_BIG;
+  $("verdict").textContent = good ? "잘 측정됐어요" : "값이 흔들렸어요";
+  $("vsub").textContent = good ? secs.toFixed(0) + "초 · 신호 또렷함" : shortWhy.join(" · ");
 
   // ── 나머지 세 값 ────────────────────────────────────────
   const peaks = detectPeaks(sig, FS, hr.bpm);
@@ -1291,15 +1465,15 @@ function compute(exp){
 
   // 봉우리·세기·등급 같은 점검값은 여기 넣지 않는다. 손님이 볼 것이 아니고,
   // 넣으면 칸이 좁아져 정작 큰 숫자가 안 보인다. 「자세히」에 다 있다.
-  const cell = (val, unit, label) =>
-    "<div><b>" + val + "</b>" +
-    (unit ? '<em>' + unit + '</em>' : "") +
-    "<span>" + label + "</span></div>";
   $("four").innerHTML =
-    cell(hr.bpm.toFixed(0), "회/분", "심박수") +
-    cell(rr ? rr.rpm.toFixed(0) : "—", "회/분", "호흡수") +
-    cell((v && v.ok) ? v.sdnn.toFixed(0) : "—", "ms", "심박변이도") +
-    cell(vit.sbp + "/" + vit.dbp, "mmHg", "혈압");
+    gaugeCell("심박수", hr.bpm.toFixed(0), "회/분", "보통 60–100", (hr.bpm-40)/100) +
+    gaugeCell("호흡수", rr ? rr.rpm.toFixed(0) : "—", "회/분",
+              rr ? "보통 12–20" : "못 구했어요", rr ? (rr.rpm-5)/20 : 0) +
+    gaugeCell("심박변이도", (v && v.ok) ? v.sdnn.toFixed(0) : "—", "ms",
+              (v && v.ok) ? "높을수록 여유" : "박동을 못 셌어요", (v && v.ok) ? (v.sdnn-10)/100 : 0) +
+    '<div class="c bp"><span class="lab">혈압 <small>추정</small></span>' +
+    '<div class="val"><b>' + vit.sbp + "/" + vit.dbp + '</b></div>' +
+    '<div class="rng"><b style="font-size:12.5px;color:var(--faint)">mmHg</b><br>체격 정보로 만든 값</div></div>';
 
   drawWave($("wave2"), sig.slice(0, Math.min(sig.length, FS*8)), "#0e6e8c");
 
@@ -1382,15 +1556,18 @@ $("again").addEventListener("click", function(){
   goTo("s-intro");
 });
 $("stop").addEventListener("click", function(){ stop(null); });
-let warned = false;
 $("begin").addEventListener("click", function(){
-  if(skinCount < 3 && !warned){
-    warned = true;
-    $("begin").textContent = "피부가 아닌 칸이 있습니다 — 그래도 시작하려면 한 번 더";
+  // 칸이 빨간 채로는 시작되지 않는다. 예전에는 버튼 문구를 갈아끼워 "한 번 더"
+  // 를 요구했는데, 바뀐 문구를 못 읽고 연타하면 그대로 시작됐다. 잠근 채로
+  // 누르면 상태줄이 한 번 깜빡여 어디를 봐야 하는지 알려준다.
+  if(skinCount < 3){
+    const line = $("skinline");
+    line.classList.remove("flash"); void line.offsetWidth; line.classList.add("flash");
     return;
   }
   if(aligned){ const f=aligned; aligned=null; f(true); }
 });
+$("staffhead").addEventListener("click", function(){ $("staff").classList.toggle("open"); });
 function resize(step){
   sizeScale = Math.max(0.45, Math.min(1.6, sizeScale*step));
   fixRects();
