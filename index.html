@@ -258,7 +258,7 @@
 "use strict";
 // 화면에 박아두는 판 번호. 브라우저가 옛 페이지를 들고 있으면 결과가
 // 옛 형식으로 오는데, 그때 어느 판을 보고 있는지 바로 알기 위한 것이다.
-const VERSION = "2026-08-21 · 화면판 23";
+const VERSION = "2026-08-21 · 화면판 24";
 
 const $ = id => document.getElementById(id);
 const V=$("v"), OV=$("ov"), SAMP=$("samp"), SCX=SAMP.getContext("2d",{willReadFrequently:true});
@@ -337,7 +337,7 @@ const RR_STRONG = 12.0, RR_FAIR = 6.0;
 // 18.0 / 8.8 로 규칙 없이 흩어져 있어 2배 문제인지조차 확실하지 않다.
 // 근거가 생기기 전에는 넣지 않는다.
 
-// 활력 점수 경로
+// 혈압 경로
 const BP_BASE_SBP = {c:100.0, age:0.40, bmi:0.50, male:4.0};
 const BP_BASE_DBP = {c: 65.0, age:0.25, bmi:0.35, male:3.0};
 const BP_AGE_CLAMP = [20, 85], BP_BMI_CLAMP = [16, 35], BP_BMI_CENTER = 22.0;
@@ -345,8 +345,6 @@ const BP_MOD_LIMIT_SBP = 10, BP_MOD_LIMIT_DBP = 7;
 const BP_MOD_HR  = {center:70.0, gain:0.15, limit:4.0};
 const BP_MOD_HRV = {center:45.0, gain:0.08, limit:3.0};
 const SBP_RANGE = [95, 150], DBP_RANGE = [60, 95], PULSE_PRESSURE_RANGE = [30, 55];
-const VITALITY_IDEAL = [115.0, 75.0], VITALITY_DEV_SCALE = [35.0, 20.0];
-const VITALITY_GAIN = 30.0, VITALITY_RANGE = [55, 99];
 const GRADE_EDGES_SDNN = [15, 30, 45, 60, 75, 90, 105];
 const GRADE_LABELS_SDNN = ["D","C","C+","B","B+","A","A+"];
 const STAR_EDGES_RR = [10, 13, 16, 19, 22];
@@ -551,7 +549,9 @@ function heartRate(x, fs){
     if(freqs[i]>=BAND_LO && freqs[i]<=BAND_HI) band += power[i];
     if(Math.abs(freqs[i]-f) <= 0.2) near += power[i];
   }
-  return { bpm: f*60, kurtosis: near/(band+1e-30), note: note };
+  // peakShare: 대역 전체 에너지 중 봉우리 ±0.2Hz 안의 몫. 예전 이름 peakShare 는
+  // 통계의 첨도가 아니어서 틀린 이름이었다. 파이썬 쪽도 peak_share 로 함께 바꿨다.
+  return { bpm: f*60, peakShare: near/(band+1e-30), note: note };
 }
 
 /** 분석창을 밀어가며 여러 추정치를 만들고 중앙값을 취한다. */
@@ -568,13 +568,13 @@ function heartRateWindowed(x, fs){
     if(x.length - lastEnd > hop/2) starts.push(x.length - win);
     for(const s of starts){
       const r = heartRate(x.slice(s, s+win), fs);
-      if(r){ est.push(r.bpm); kur.push(r.kurtosis); }
+      if(r){ est.push(r.bpm); kur.push(r.peakShare); }
     }
   }
   if(!est.length){
     const r = heartRate(x, fs);
     if(!r) return null;
-    est.push(r.bpm); kur.push(r.kurtosis);
+    est.push(r.bpm); kur.push(r.peakShare);
   }
   const keep = est.slice(-HR_MEDIAN).slice().sort((a,b)=>a-b);
   const med = keep[Math.floor(keep.length/2)];
@@ -583,7 +583,7 @@ function heartRateWindowed(x, fs){
   const ks = kur.slice().sort((a,b)=>a-b);
   return { bpm: Math.max(HR_RANGE[0], Math.min(HR_RANGE[1], med)),
            raw: med, estimates: est, spread: spread,
-           kurtosis: ks[Math.floor(ks.length/2)] };
+           peakShare: ks[Math.floor(ks.length/2)] };
 }
 
 const clamp = (v,lo,hi) => Math.max(lo, Math.min(hi, v));
@@ -732,13 +732,18 @@ function respirationRate(green, fs){
 }
 
 /**
- * 활력 점수 경로.
+ * 혈압 경로.
  *
  * 이 값은 잰 것이 아니라 **입력 정보와 신호 특징으로 만든 값**이다. 값의
  * 대부분은 나이·성별·체격이 정한다. 같은 사람이 같은 입력을 넣으면 비슷한
  * 값이 나오므로 재현성이 확보된다. 신호로 흔드는 폭은 좁게 제한한다.
+ *
+ * 예전에는 여기서 55~99 점짜리 「활력 점수」로 한 번 더 바꿨다. 2026-08-21 에
+ * 혈압을 실수치로 보여주기로 하면서 그 점수는 없앴다 — 기준점 115/75 가
+ * 40대 남성 평균 체격 좌표라 그 사람들이 만점에 붙고 20대가 낮게 나오는
+ * 편향이 있었는데, 쓰지도 않는 값을 그 편향째로 파일에 실어 보낼 이유가 없다.
  */
-function vitality(sex, age, heightCm, weightKg, hr, sdnn){
+function bloodPressure(sex, age, heightCm, weightKg, hr, sdnn){
   const bmi = weightKg / Math.pow(heightCm/100, 2);
   const a = clamp(age, BP_AGE_CLAMP[0], BP_AGE_CLAMP[1]) - BP_AGE_CLAMP[0];
   const b = clamp(bmi, BP_BMI_CLAMP[0], BP_BMI_CLAMP[1]) - BP_BMI_CENTER;
@@ -759,13 +764,7 @@ function vitality(sex, age, heightCm, weightKg, hr, sdnn){
   if(s - d > PULSE_PRESSURE_RANGE[1]) d = s - PULSE_PRESSURE_RANGE[1];
   s = clamp(s, SBP_RANGE[0], SBP_RANGE[1]);
   d = clamp(d, DBP_RANGE[0], DBP_RANGE[1]);
-  const si = roundHalfUp(s), di = roundHalfUp(d);
-
-  const dev = Math.abs(si - VITALITY_IDEAL[0])/VITALITY_DEV_SCALE[0]
-            + Math.abs(di - VITALITY_IDEAL[1])/VITALITY_DEV_SCALE[1];
-  const score = roundHalfUp(100 - dev*VITALITY_GAIN);
-  return { sbp: si, dbp: di,
-           score: clamp(score, VITALITY_RANGE[0], VITALITY_RANGE[1]), bmi: bmi };
+  return { sbp: roundHalfUp(s), dbp: roundHalfUp(d), bmi: bmi };
 }
 
 /** 심박변이도를 등급으로. 별점은 리듬이 빠르다는 뜻이지 좋다는 뜻이 아니다. */
@@ -1164,10 +1163,14 @@ function finish(exp){
  */
 function showFail(msg){
   $("verdict").textContent = "다시 해주세요";
-  $("four").innerHTML =
-    '<div style="grid-column:1/-1;grid-row:1/-1">' +
-    '<em style="font-size:clamp(17px,4.6vw,22px);white-space:pre-line;' +
-    'line-height:1.7">' + msg + '</em></div>';
+  // 예외 문구가 섞일 수 있는 글은 innerHTML 로 넣지 않는다. 글은 글로만 들어간다.
+  const box = $("four"); box.innerHTML = "";
+  const wrap = document.createElement("div");
+  wrap.style.gridColumn = "1/-1"; wrap.style.gridRow = "1/-1";
+  const em = document.createElement("em");
+  em.style.cssText = "font-size:clamp(17px,4.6vw,22px);white-space:pre-line;line-height:1.7";
+  em.textContent = msg;
+  wrap.appendChild(em); box.appendChild(wrap);
   $("verdict2").className = "banner bad";
   $("verdict2").textContent = msg;
   $("tbl").innerHTML = "";
@@ -1223,14 +1226,14 @@ function compute(exp){
   const atEdge = hr.bpm <= HR_RANGE[0] + 5 || hr.bpm >= HR_RANGE[1] - 5;
   const slow   = fpsInfo.fps < 15;
   const choppy = maxGap > 1.0;
-  const good   = hr.kurtosis >= 0.30 && hr.spread <= 6 && !atEdge && !slow && !choppy;
+  const good   = hr.peakShare >= 0.30 && hr.spread <= 6 && !atEdge && !slow && !choppy;
 
   let why = [];
   if(atEdge) why.push("봉우리가 찾는 범위의 끝에 걸렸습니다. 맥박이 아니라 조명이나 몸의 흔들림일 수 있습니다.");
   if(slow)   why.push("초당 " + fpsInfo.fps.toFixed(1) + "장밖에 못 찍었습니다. 다른 창을 닫고 다시 해보세요.");
   if(choppy) why.push("촬영이 " + maxGap.toFixed(1) + "초 끊겼습니다. 다른 창으로 가지 말고 이 화면을 열어둔 채로 해주세요.");
   if(!exp.locked) why.push("밝기가 고정되지 않았습니다. 카메라가 밝기를 조절하면서 신호를 지웁니다.");
-  if(hr.kurtosis < 0.30) why.push("봉우리가 뚜렷하지 않습니다. 더 밝은 곳에서 해보세요.");
+  if(hr.peakShare < 0.30) why.push("봉우리가 뚜렷하지 않습니다. 더 밝은 곳에서 해보세요.");
 
   $("verdict2").className = "banner " + (good ? "ok" : "info");
   $("verdict2").textContent = good
@@ -1256,8 +1259,8 @@ function compute(exp){
 
   // 고칠 재료. 영상도 사진도 아니고 피부 세 조각의 평균 색 시계열이다.
   const sdnn = (v && v.ok) ? v.sdnn : 45;         // 못 구하면 기준점으로 둔다
-  const vit = vitality(me.sex || "남자", me.age || 40, me.height || 170, me.weight || 70,
-                       hr.bpm, sdnn);
+  const vit = bloodPressure(me.sex || "남자", me.age || 40, me.height || 170, me.weight || 70,
+                            hr.bpm, sdnn);
 
   lastRaw = {
     판: VERSION, 시각: new Date().toISOString(), 브라우저: navigator.userAgent,
@@ -1266,11 +1269,11 @@ function compute(exp){
             최대끊김: +maxGap.toFixed(3), 격자속도: FS,
             타원배율: +sizeScale.toFixed(2), 피부칸: skinCount },
     결과: { 심박수: +hr.bpm.toFixed(2), 창별: hr.estimates.map(x=>+x.toFixed(2)),
-            봉우리: +hr.kurtosis.toFixed(4),
+            봉우리: +hr.peakShare.toFixed(4),
             호흡수: rr ? +rr.rpm.toFixed(2) : null,
             호흡세기: rr ? +rr.overMedian.toFixed(1) : null,
             호흡후보: rr ? rr.top3 : null,
-            수축기: vit.sbp, 이완기: vit.dbp, 활력점수: vit.score,
+            수축기: vit.sbp, 이완기: vit.dbp,
             심박변이도: (v && v.ok) ? +v.sdnn.toFixed(1) : null,
             RMSSD: (v && v.ok) ? +v.rmssd.toFixed(1) : null,
             유효박동: (v && v.ok) ? v.nValid : null },
@@ -1300,15 +1303,18 @@ function compute(exp){
 
   drawWave($("wave2"), sig.slice(0, Math.min(sig.length, FS*8)), "#0e6e8c");
 
+  // 카메라가 돌려준 문구(exp.why)는 우리가 쓴 글이 아니다. 표에 넣기 전에 꺾쇠를 죽인다.
+  const esc = t => String(t).replace(/[&<>"']/g, c =>
+    ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
   const row = (a,b)=>"<tr><th>"+a+"</th><td>"+b+"</td></tr>";
   $("tbl").innerHTML =
     row("찍힌 장수", fpsInfo.n + " 장 · 초당 " + fpsInfo.fps.toFixed(1)) +
     row("창별 추정치", hr.estimates.map(v=>v.toFixed(1)).join(" / ")) +
     row("추정치 흩어짐", hr.spread.toFixed(2) + " (작을수록 좋음)") +
-    row("봉우리 뚜렷함", hr.kurtosis.toFixed(3) + " (0.30 을 넘으면 양호)") +
+    row("봉우리 뚜렷함", hr.peakShare.toFixed(3) + " (0.30 을 넘으면 양호)") +
     row("밝기 고정", exp.locked ? "O 고정됨"
         : (exp.supported ? "X 안 먹음" : "X 지원 안 함") +
-          (exp.why ? ' <span class="muted">(' + exp.why + ')</span>' : "")) +
+          (exp.why ? ' <span class="muted">(' + esc(exp.why) + ')</span>' : "")) +
     row("잡은 노출", exp.exposure
         ? (exp.exposure/10).toFixed(1) + " ms · 얼굴 밝기 " + (exp.bright||0).toFixed(0)
         : "—") +
@@ -1322,7 +1328,7 @@ function compute(exp){
     "브라우저: " + navigator.userAgent,
     "심박수: " + hr.bpm.toFixed(1) + " (클램프 전 " + hr.raw.toFixed(1) + ")",
     "창별 추정치: " + hr.estimates.map(v=>v.toFixed(2)).join(", "),
-    "흩어짐: " + hr.spread.toFixed(3) + " / 봉우리: " + hr.kurtosis.toFixed(4),
+    "흩어짐: " + hr.spread.toFixed(3) + " / 봉우리: " + hr.peakShare.toFixed(4),
     "장수: " + fpsInfo.n + " · 초당 " + fpsInfo.fps.toFixed(2) + " · 길이 " + secs.toFixed(1) + "초",
     "밝기 고정: 지원 " + exp.supported + " / 적용 " + exp.locked + " / 색 " + exp.wb
       + (exp.why ? " / " + exp.why : ""),
@@ -1347,7 +1353,7 @@ function compute(exp){
         + ", RMSSD " + v.rmssd.toFixed(1) + ", 유효 " + v.nValid + "/버림 " + v.nRejected
         + (v.jitter ? ", 흔들림 의심" : "") + ")"
       : "못 구함 (봉우리 " + peaks.length + "개)"),
-    "혈압: " + vit.sbp + "/" + vit.dbp + " mmHg (활력 점수 환산 " + vit.score + ")",
+    "혈압: " + vit.sbp + "/" + vit.dbp + " mmHg",
     "판정: " + (good ? "양호" : "믿기 어려움 — " + why.join(" | "))
   ].join("\n");
 }

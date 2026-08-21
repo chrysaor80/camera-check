@@ -66,7 +66,7 @@ global.window = { addEventListener(){}, scrollTo(){} };
 
 let api;
 try {
-  api = new Function(js + "; return {compute, drawWave, SECONDS, FS, vitality," +
+  api = new Function(js + "; return {compute, drawWave, SECONDS, FS, bloodPressure," +
                      " setFrames:f=>{frames=f}, setMaxGap:g=>{maxGap=g}," +
                      " getRaw:()=>lastRaw, heartRateWindowed};")();
   ok("페이지 전체 실행");
@@ -132,7 +132,7 @@ try {
 
 // 9. 입력이 결과에 실제로 반영되는가
 //    숫자가 나오는지만 보지 말고 입력에 따라 달라지는지를 본다.
-const vit = api.vitality;
+const vit = api.bloodPressure;
 const m1 = vit("남", 40, 170, 70, 72, 40), m2 = vit("남자", 40, 170, 70, 72, 40);
 const f1 = vit("여", 40, 170, 70, 72, 40), f2 = vit("여자", 40, 170, 70, 72, 40);
 (m1.sbp === m2.sbp && f1.sbp === f2.sbp)
