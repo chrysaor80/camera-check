@@ -127,7 +127,7 @@
 "use strict";
 // 화면에 박아두는 판 번호. 브라우저가 옛 페이지를 들고 있으면 결과가
 // 옛 형식으로 오는데, 그때 어느 판을 보고 있는지 바로 알기 위한 것이다.
-const VERSION = "2026-08-21 · 결과판 5";
+const VERSION = "2026-08-21 · 결과판 6";
 
 const $ = id => document.getElementById(id);
 const V=$("v"), OV=$("ov"), SAMP=$("samp"), SCX=SAMP.getContext("2d",{willReadFrequently:true});
@@ -697,6 +697,29 @@ async function start(){
 }
 
 function finish(exp){
+  // 계산 중에 무엇이든 터지면 화면이 "계산 중" 에서 멈춘 채 아무 말이 없다.
+  // 실제로 상수 이름 하나가 안 맞아 그렇게 됐다. 이유를 띄우고 끝낸다.
+  try{ compute(exp); }
+  catch(e){
+    running = false;
+    if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+    $("s-run").classList.add("hide");
+    $("s-out").classList.remove("hide");
+    $("verdict").className = "banner bad";
+    $("verdict").textContent = "계산 중에 문제가 생겼습니다.\n아래 내용을 복사해 보내주세요.";
+    $("bpm").textContent = "—";
+    $("tbl").innerHTML = "";
+    window.__report = [
+      "== 얼굴 촬영 시험 ==",
+      "화면 판: " + VERSION,
+      "오류: " + (e && (e.stack || e.message || e)),
+      "장수: " + frames.length,
+      "브라우저: " + navigator.userAgent
+    ].join("\n");
+  }
+}
+
+function compute(exp){
   running = false;
   $("status").textContent = "계산 중";
   const times = frames.map(f=>f.t);
@@ -705,7 +728,7 @@ function finish(exp){
 
   // ROI 별로 균일 격자에 얹고 POS → 대역통과 → 가중 합
   const perRoi = {};
-  for(const k in ROIS){
+  for(const k in ROI_REL){
     const rs = [0,1,2].map(c => resample(times, frames.map(f=>f.roi[k][c]), FS));
     const n = Math.min(rs[0].length, rs[1].length, rs[2].length);
     const rgb = new Array(n);
