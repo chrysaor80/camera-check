@@ -73,8 +73,8 @@
     <p>얼굴을 <b>40초</b> 촬영해서 <b>네 가지 값</b>을 뽑아 봅니다.<br>
        만드는 중인 화면이라 값이 흔들릴 수 있습니다.</p>
     <p class="muted">
-      촬영본은 이 기기 밖으로 <b>나가지 않습니다.</b>
-      인터넷으로 보내지 않고 저장하지도 않습니다. 화면에서 보고 끝납니다.
+      <b>영상은 어디에도 저장하지 않습니다.</b> 인터넷으로 보내는 것도 없습니다.
+      결과가 나온 뒤 직접 누르셔야만 숫자 자료가 기기에 내려받아집니다.
     </p>
     <h2>잘 나오게 하려면</h2>
     <p class="muted">
@@ -136,12 +136,20 @@
     <p class="muted" style="text-align:center;margin-top:6px">뽑아낸 맥박 파형</p>
     <h2>이번 촬영</h2>
     <table id="tbl"></table>
+    <h2>고치는 데 쓸 자료</h2>
+    <p class="muted" style="margin-bottom:6px">
+      방금 40초 동안 <b>숨을 몇 번</b> 쉬셨는지 아시면 골라주세요.
+      호흡 계산을 고치는 데 이 값이 꼭 필요합니다.
+    </p>
+    <div class="pick" id="p-brt"></div>
+    <button id="save" class="ghost">원시 신호 파일로 저장</button>
+    <p class="muted" id="savenote" style="margin:6px 0 0;text-align:center"></p>
     <button id="again" class="ghost">다시 하기</button>
     <button id="copy" class="ghost">결과 복사하기</button>
   </div>
 
   <p class="muted" style="text-align:center">
-    만드는 중인 시험용 화면입니다. 아무것도 저장하지 않습니다.<br>
+    만드는 중인 시험용 화면입니다. 영상은 저장하지 않습니다.<br>
     <span id="ver"></span>
   </p>
 </div>
@@ -152,7 +160,7 @@
 "use strict";
 // 화면에 박아두는 판 번호. 브라우저가 옛 페이지를 들고 있으면 결과가
 // 옛 형식으로 오는데, 그때 어느 판을 보고 있는지 바로 알기 위한 것이다.
-const VERSION = "2026-08-21 · 결과판 13";
+const VERSION = "2026-08-21 · 결과판 14";
 
 const $ = id => document.getElementById(id);
 const V=$("v"), OV=$("ov"), SAMP=$("samp"), SCX=SAMP.getContext("2d",{willReadFrequently:true});
@@ -678,6 +686,11 @@ picker("p-age","age",range(20,80,10), v=>v+"대");
 picker("p-hei","height",range(145,195,5));
 picker("p-wei","weight",range(40,110,5));
 
+// 방금 40초 동안 실제로 몇 번 쉬었는지. 호흡 계산을 고치려면 참값이 있어야 한다.
+me.breaths = null;
+picker("p-brt","breaths",[5,6,7,8,9,10,11,12,13,14,15,16], v=>v+"번");
+
+let lastRaw=null;   // 방금 촬영의 원시 신호. 파일로 내보낼 때 쓴다
 let stream=null, running=false, frames=[], startAt=0, fpsInfo={n:0,fps:0}, maxGap=0;
 let aligned=null;   // 자리 맞추기 화면에서 시작을 눌렀을 때 이어가는 고리
 let skinCount=0;    // 재는 칸 셋 중 몇 개가 피부 위에 있는지
@@ -1011,10 +1024,11 @@ function compute(exp){
   fpsInfo = { n: frames.length, fps: frames.length/secs };
 
   // ROI 별로 균일 격자에 얹고 POS → 대역통과 → 가중 합
-  const perRoi = {}, greenByRoi = {};
+  const perRoi = {}, greenByRoi = {}, perRoiRaw = {};
   for(const k in ROI_REL){
     const rs = [0,1,2].map(c => resample(times, frames.map(f=>f.roi[k][c]), FS));
     greenByRoi[k] = rs[1];
+    perRoiRaw[k] = rs;
     const n = Math.min(rs[0].length, rs[1].length, rs[2].length);
     const rgb = new Array(n);
     for(let i=0;i<n;i++) rgb[i] = [rs[0][i], rs[1][i], rs[2][i]];
@@ -1077,6 +1091,33 @@ function compute(exp){
     green.push(g);
   }
   const rr = respirationRate(green, FS);
+
+  // 고칠 재료. 영상도 사진도 아니고 피부 세 조각의 평균 색 시계열이다.
+  lastRaw = {
+    판: VERSION, 시각: new Date().toISOString(), 브라우저: navigator.userAgent,
+    입력: { 성별: me.sex, 나이대: me.age, 키: me.height, 몸무게: me.weight },
+    촬영: { 장수: fpsInfo.n, 초당: +fpsInfo.fps.toFixed(2), 길이초: +secs.toFixed(1),
+            최대끊김: +maxGap.toFixed(3), 격자속도: FS,
+            타원배율: +sizeScale.toFixed(2), 피부칸: skinCount },
+    결과: { 심박수: +hr.bpm.toFixed(2), 창별: hr.estimates.map(x=>+x.toFixed(2)),
+            봉우리: +hr.kurtosis.toFixed(4),
+            호흡수: rr ? +rr.rpm.toFixed(2) : null,
+            호흡세기: rr ? +rr.overMedian.toFixed(1) : null,
+            호흡후보: rr ? rr.top3 : null,
+            심박변이도: (v && v.ok) ? +v.sdnn.toFixed(1) : null,
+            RMSSD: (v && v.ok) ? +v.rmssd.toFixed(1) : null,
+            유효박동: (v && v.ok) ? v.nValid : null },
+    // 균일 격자로 다시 얹은 뒤의 값. 소수 둘째 자리면 충분하다.
+    시계열: (function(){
+      const o = {};
+      for(const k in ROI_REL) o[k] = {
+        R: Array.from(perRoiRaw[k][0], x=>+x.toFixed(2)),
+        G: Array.from(perRoiRaw[k][1], x=>+x.toFixed(2)),
+        B: Array.from(perRoiRaw[k][2], x=>+x.toFixed(2)),
+      };
+      return o;
+    })()
+  };
   const sdnn = (v && v.ok) ? v.sdnn : 45;         // 못 구하면 기준점으로 둔다
   const vit = vitality(me.sex, me.age, me.height, me.weight, hr.bpm, sdnn);
 
@@ -1182,6 +1223,33 @@ function resize(step){
 }
 $("smaller").addEventListener("click", function(){ resize(1/1.12); });
 $("bigger").addEventListener("click",  function(){ resize(1.12); });
+/**
+ * 원시 신호를 파일로 떨군다.
+ *
+ * 페이지가 스스로 저장하지는 않는다. 이 단추를 누르실 때만 기기에 내려간다.
+ * 담기는 것은 영상도 사진도 아니고 **피부 세 조각의 평균 색이 40초 동안
+ * 어떻게 변했는지**다. 이걸로 얼굴을 되살릴 수는 없다.
+ */
+$("save").addEventListener("click", function(){
+  if(!lastRaw){ $("savenote").textContent = "저장할 것이 없습니다."; return; }
+  lastRaw.실제호흡횟수_40초 = me.breaths;      // 고를 때만 들어간다
+  const stamp = new Date().toISOString().replace(/[-:T]/g,"").slice(0,13);
+  const name = "rppg_" + stamp + ".json";
+  const blob = new Blob([JSON.stringify(lastRaw)], {type:"application/json"});
+  try{
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+    $("savenote").textContent = name + " 로 내려받았습니다 ("
+      + Math.round(blob.size/1024) + "KB)";
+  }catch(e){
+    $("savenote").textContent = "이 브라우저에서는 내려받기가 막혀 있습니다. "
+      + "사파리나 크롬으로 열어주세요.";
+  }
+});
+
 $("copy").addEventListener("click", async function(){
   try{ await navigator.clipboard.writeText(window.__report||""); $("copy").textContent="복사했습니다"; }
   catch(e){ $("copy").textContent="복사가 막혀 있습니다"; }
