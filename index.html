@@ -152,7 +152,7 @@
 "use strict";
 // 화면에 박아두는 판 번호. 브라우저가 옛 페이지를 들고 있으면 결과가
 // 옛 형식으로 오는데, 그때 어느 판을 보고 있는지 바로 알기 위한 것이다.
-const VERSION = "2026-08-21 · 결과판 12";
+const VERSION = "2026-08-21 · 결과판 13";
 
 const $ = id => document.getElementById(id);
 const V=$("v"), OV=$("ov"), SAMP=$("samp"), SCX=SAMP.getContext("2d",{willReadFrequently:true});
@@ -178,10 +178,11 @@ const SDNN_RANGE = [15, 120];
 
 // 호흡
 //
-// 0.15~0.40Hz(분당 9~24회)로 잡아두었더니 분당 7~8회로 숨쉬는 사람이 아예
-// 범위 밖이었다. 볼 수 없으니 대역 안 잡음 중 제일 큰 것을 집어 23.29 가
-// 나왔다. 느리게 쉬는 사람까지 담도록 아래를 0.10Hz(분당 6회)로 내린다.
-const RR_BAND_HZ = [0.12, 0.45], RR_NFFT = 4096, RR_RANGE = [7, 27];
+// 한 번 0.12~0.45Hz 로 넓혔다가 되돌렸다. 느리게 쉬는 사람을 담으려던
+// 것인데, 넓히고 나서 8.79 가 나왔다. 그건 넓힌 구간에서만 나올 수 있는
+// 값이다(0.147Hz). 답이 될 수 있는 자리를 늘려놓고 거기서 틀린 답을 얻은
+// 셈이라, 파이썬 원본 값으로 되돌린다.
+const RR_BAND_HZ = [0.15, 0.40], RR_NFFT = 4096, RR_RANGE = [10, 24];
 
 // 봉우리가 얼마나 솟아 있는가를 **가운뎃값 대비**로 본다.
 //
@@ -194,9 +195,14 @@ const RR_BAND_HZ = [0.12, 0.45], RR_NFFT = 4096, RR_RANGE = [7, 27];
 // 틀린 값을 보여주는 것만큼 나쁘다. 아래 문턱은 자료가 쌓이면 다시 정한다.
 const RR_STRONG = 12.0, RR_FAIR = 6.0;
 
-// 2배 방어는 절반이 이만큼은 되어야 건다. 대역을 아래로 넓히면 표류가
-// 들어오는데, 12.7 을 6.4 로 반토막 내는 사고가 날 수 있다.
-const RR_SUBHARMONIC_RATIO = 0.5, RR_SUBHARMONIC_MIN_RPM = 8.0;
+// 2배 방어는 뺐다. 23.29 가 11.6 의 두 배로 보여서 넣었는데, 시험해 보니
+// 설계한 그 경우에도 걸리지 않았다(참값 11.5 에 2배 성분을 세게 넣어도
+// 22.85 가 그대로 나온다). 2배 성분이 진폭으로 두 배면 세기로는 네 배라
+// 절반 자리의 몫이 0.25 밖에 안 되는데 문턱이 0.5 였다.
+//
+// 문턱을 낮춰 억지로 걸리게 만들 수도 있지만, 실측 네 개가 23.3 / 12.7 /
+// 18.0 / 8.8 로 규칙 없이 흩어져 있어 2배 문제인지조차 확실하지 않다.
+// 근거가 생기기 전에는 넣지 않는다.
 
 // 활력 점수 경로
 const BP_BASE_SBP = {c:100.0, age:0.40, bmi:0.50, male:4.0};
@@ -547,20 +553,6 @@ function respirationRate(green, fs){
   // 2배 성분이 기본보다 세게 나오는 일이 흔하다. 실제로 분당 11.5 회로
   // 쉬는 사람에게서 23.29 가 나왔다. 심박수에는 있던 방어가 여기엔 없었다.
   // 절반이 **국소 최대**이면서 충분히 셀 때만 바꾼다.
-  // 2배 방어가 걸렸는지를 기록에 남긴다. 실측에서 8.79 가 나왔는데
-  // 8.79x2 = 17.58 이라, 방어가 멀쩡한 값을 반토막 낸 것인지 아니면 원래
-  // 거기가 제일 셌던 것인지 알 수가 없었다. 추측으로 고치지 않으려면
-  // 무엇이 일어났는지부터 보여야 한다.
-  let halved = null;
-  const half = Math.round(k/2);
-  if(half > 0 && half < N/2 && half*fs/N*60 >= RR_SUBHARMONIC_MIN_RPM){
-    const localPeak = acc[half] >= acc[half-1] && acc[half] >= acc[half+1];
-    if(localPeak && acc[half] >= RR_SUBHARMONIC_RATIO*acc[k]){
-      halved = { from: k*fs/N*60, to: half*fs/N*60,
-                 ratio: acc[half]/acc[k] };
-      k = half;
-    }
-  }
   const raw = k*fs/N*60;
 
   // 대역 안 칸들의 가운뎃값. 봉우리 자신과 낮은 쪽 표류에 끌려가지 않는다.
@@ -589,7 +581,7 @@ function respirationRate(green, fs){
   return { rpm: clamp(raw, RR_RANGE[0], RR_RANGE[1]), rpmRaw: raw,
            strength: best/(total+1e-30), overMean: best/(total+1e-30)*bins,
            overMedian: overMedian, level: level, atEdge: atEdge,
-           segs: segs, top3: top3, halved: halved };
+           segs: segs, top3: top3 };
 }
 
 /**
@@ -1144,7 +1136,6 @@ function compute(exp){
         + ", 가운뎃값대비 " + rr.overMedian.toFixed(1) + "배"
         + (rr.atEdge ? ", 대역 끝" : "") + ", 조각 " + rr.segs + ")"
         + "  후보 " + rr.top3
-        + (rr.halved ? "  [2배방어: " + rr.halved.from.toFixed(1) + " -> " + rr.halved.to.toFixed(1) + ", 세기비 " + rr.halved.ratio.toFixed(2) + "]" : "  [2배방어 안 걸림]")
       : "못 구함"),
     "심박변이도: " + (v && v.ok
       ? v.sdnn.toFixed(1) + "ms (클램프 전 " + v.sdnnRaw.toFixed(1)
