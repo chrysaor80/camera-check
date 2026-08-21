@@ -152,7 +152,7 @@
 "use strict";
 // 화면에 박아두는 판 번호. 브라우저가 옛 페이지를 들고 있으면 결과가
 // 옛 형식으로 오는데, 그때 어느 판을 보고 있는지 바로 알기 위한 것이다.
-const VERSION = "2026-08-21 · 결과판 10";
+const VERSION = "2026-08-21 · 결과판 11";
 
 const $ = id => document.getElementById(id);
 const V=$("v"), OV=$("ov"), SAMP=$("samp"), SCX=SAMP.getContext("2d",{willReadFrequently:true});
@@ -510,7 +510,14 @@ function hrvOf(peaks, fs){
  */
 function respirationRate(green, fs){
   const y = bandpass(green, fs, RR_BAND_HZ[0], RR_BAND_HZ[1]);
-  const nper = Math.min(y.length, Math.round(30*fs));
+  // 짧은 촬영에서는 **통째로 한 조각**으로 본다.
+  //
+  // 원본은 30초 조각을 절반씩 겹쳐 평균하는데, 그건 130초짜리 긴 영상에서
+  // 조각이 여덟 개쯤 나오는 것을 전제한 값이다. 40초 촬영에서는 조각이 하나만
+  // 만들어지면서 뒤 10초를 통째로 버린다. 게다가 조각이 짧을수록 주파수가
+  // 뭉개진다 — 40초면 분당 1.5회, 30초면 2회까지밖에 못 가른다.
+  // 합성 신호에서 봉우리 선명도가 20.5 에서 128.6 으로 올랐다.
+  const nper = y.length <= Math.round(60*fs) ? y.length : Math.round(30*fs);
   if(nper < 16) return null;
   const N = RR_NFFT;
   const win = new Float64Array(nper);
@@ -555,13 +562,25 @@ function respirationRate(green, fs){
   }
   const med = median(vals) || 1e-30;
   const overMedian = (acc[k]/segs)/med;
+
+  // 봉우리 후보 셋. 참값이 2등에 앉아 있는지 알아야 어디를 고칠지 정한다.
+  const cands = [];
+  for(let i=1;i<N/2;i++){
+    const f = i*fs/N;
+    if(f < RR_BAND_HZ[0] || f > RR_BAND_HZ[1]) continue;
+    if(acc[i] >= acc[i-1] && acc[i] >= acc[i+1])
+      cands.push({ rpm: f*60, over: (acc[i]/segs)/med });
+  }
+  cands.sort((a,b)=>b.over-a.over);
+  const top3 = cands.slice(0,3).map(c => c.rpm.toFixed(1)+"("+c.over.toFixed(1)+")").join(" ");
   const atEdge = raw <= RR_BAND_HZ[0]*60 + 0.6 || raw >= RR_BAND_HZ[1]*60 - 0.6;
   const level = atEdge ? "약함"
               : overMedian >= RR_STRONG ? "강함"
               : overMedian >= RR_FAIR   ? "보통" : "약함";
   return { rpm: clamp(raw, RR_RANGE[0], RR_RANGE[1]), rpmRaw: raw,
            strength: best/(total+1e-30), overMean: best/(total+1e-30)*bins,
-           overMedian: overMedian, level: level, atEdge: atEdge };
+           overMedian: overMedian, level: level, atEdge: atEdge,
+           segs: segs, top3: top3 };
 }
 
 /**
@@ -1114,7 +1133,8 @@ function compute(exp){
         + ", 세기 " + rr.strength.toFixed(3)
         + ", 평균대비 " + rr.overMean.toFixed(1) + "배"
         + ", 가운뎃값대비 " + rr.overMedian.toFixed(1) + "배"
-        + (rr.atEdge ? ", 대역 끝" : "") + ")"
+        + (rr.atEdge ? ", 대역 끝" : "") + ", 조각 " + rr.segs + ")"
+        + "  후보 " + rr.top3
       : "못 구함"),
     "심박변이도: " + (v && v.ok
       ? v.sdnn.toFixed(1) + "ms (클램프 전 " + v.sdnnRaw.toFixed(1)
