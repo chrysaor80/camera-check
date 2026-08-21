@@ -258,7 +258,7 @@
 "use strict";
 // 화면에 박아두는 판 번호. 브라우저가 옛 페이지를 들고 있으면 결과가
 // 옛 형식으로 오는데, 그때 어느 판을 보고 있는지 바로 알기 위한 것이다.
-const VERSION = "2026-08-21 · 화면판 18";
+const VERSION = "2026-08-21 · 화면판 19";
 
 const $ = id => document.getElementById(id);
 const V=$("v"), OV=$("ov"), SAMP=$("samp"), SCX=SAMP.getContext("2d",{willReadFrequently:true});
@@ -757,7 +757,8 @@ function vitality(sex, age, heightCm, weightKg, hr, sdnn){
   const dev = Math.abs(si - VITALITY_IDEAL[0])/VITALITY_DEV_SCALE[0]
             + Math.abs(di - VITALITY_IDEAL[1])/VITALITY_DEV_SCALE[1];
   const score = roundHalfUp(100 - dev*VITALITY_GAIN);
-  return { score: clamp(score, VITALITY_RANGE[0], VITALITY_RANGE[1]), bmi: bmi };
+  return { sbp: si, dbp: di,
+           score: clamp(score, VITALITY_RANGE[0], VITALITY_RANGE[1]), bmi: bmi };
 }
 
 /** 심박변이도를 등급으로. 별점은 리듬이 빠르다는 뜻이지 좋다는 뜻이 아니다. */
@@ -1257,6 +1258,7 @@ function compute(exp){
             호흡수: rr ? +rr.rpm.toFixed(2) : null,
             호흡세기: rr ? +rr.overMedian.toFixed(1) : null,
             호흡후보: rr ? rr.top3 : null,
+            수축기: vit.sbp, 이완기: vit.dbp, 활력점수: vit.score,
             심박변이도: (v && v.ok) ? +v.sdnn.toFixed(1) : null,
             RMSSD: (v && v.ok) ? +v.rmssd.toFixed(1) : null,
             유효박동: (v && v.ok) ? v.nValid : null },
@@ -1284,7 +1286,7 @@ function compute(exp){
     cell(hr.bpm.toFixed(0), "회/분", "심박수") +
     cell(rr ? rr.rpm.toFixed(0) : "—", "회/분", "호흡수") +
     cell((v && v.ok) ? v.sdnn.toFixed(0) : "—", "ms", "심박변이도") +
-    cell(vit.score, "점", "활력 점수");
+    cell(vit.sbp + "/" + vit.dbp, "mmHg", "혈압");
 
   drawWave($("wave2"), sig.slice(0, Math.min(sig.length, FS*8)), "#0e6e8c");
 
@@ -1335,7 +1337,7 @@ function compute(exp){
         + ", RMSSD " + v.rmssd.toFixed(1) + ", 유효 " + v.nValid + "/버림 " + v.nRejected
         + (v.jitter ? ", 흔들림 의심" : "") + ")"
       : "못 구함 (봉우리 " + peaks.length + "개)"),
-    "활력 점수: " + vit.score,
+    "혈압: " + vit.sbp + "/" + vit.dbp + " mmHg (활력 점수 환산 " + vit.score + ")",
     "판정: " + (good ? "양호" : "믿기 어려움 — " + why.join(" | "))
   ].join("\n");
 }
