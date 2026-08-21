@@ -102,7 +102,9 @@
   </div>
 
   <p class="muted" style="text-align:center">
-    카메라 성능만 확인하는 페이지입니다. 아무것도 저장하지 않습니다.
+    <a href="./">얼굴 촬영 시험으로 가기</a><br>
+    카메라 성능만 확인하는 페이지입니다. 아무것도 저장하지 않습니다.<br>
+    <span id="ver"></span>
   </p>
 </div>
 
@@ -112,8 +114,10 @@
 <script>
 "use strict";
 
+const VERSION = "2026-08-21 · 진단판 1";
 const $ = (id) => document.getElementById(id);
 const V = $("v"), C = $("c"), CX = C.getContext("2d", { willReadFrequently: true });
+$("ver").textContent = "화면 판 " + VERSION;
 
 // 밝기 시험에서 이만큼은 변해야 "정말로 고정이 먹었다" 고 본다.
 // 안드로이드 앱의 시험과 같은 기준을 쓴다.
@@ -308,6 +312,7 @@ async function run() {
 
     // ── 보고서 ────────────────────────────────────────────
     note("== 브라우저 카메라 확인 ==");
+    note("화면 판: " + VERSION);
     note("시각: " + new Date().toISOString());
     note("주소: " + location.href);
     note("브라우저: " + navigator.userAgent);

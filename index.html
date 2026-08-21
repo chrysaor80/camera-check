@@ -102,7 +102,8 @@
   </div>
 
   <p class="muted" style="text-align:center">
-    만드는 중인 시험용 화면입니다. 아무것도 저장하지 않습니다.
+    만드는 중인 시험용 화면입니다. 아무것도 저장하지 않습니다.<br>
+    <span id="ver"></span>
   </p>
 </div>
 
@@ -110,8 +111,13 @@
 
 <script>
 "use strict";
+// 화면에 박아두는 판 번호. 브라우저가 옛 페이지를 들고 있으면 결과가
+// 옛 형식으로 오는데, 그때 어느 판을 보고 있는지 바로 알기 위한 것이다.
+const VERSION = "2026-08-21 · 결과판 1";
+
 const $ = id => document.getElementById(id);
 const V=$("v"), OV=$("ov"), SAMP=$("samp"), SCX=SAMP.getContext("2d",{willReadFrequently:true});
+$("ver").textContent = "화면 판 " + VERSION;
 
 // ── 파이썬 프로토타입과 같은 값을 쓴다 (prototype/config.py) ──────────
 const FS = 30;                    // 균일 격자로 다시 샘플링할 기준 속도
@@ -544,6 +550,7 @@ function finish(exp){
 
   window.__report = [
     "== 얼굴 촬영 시험 ==",
+    "화면 판: " + VERSION,
     "시각: " + new Date().toISOString(),
     "브라우저: " + navigator.userAgent,
     "심박수: " + hr.bpm.toFixed(1) + " (클램프 전 " + hr.raw.toFixed(1) + ")",
