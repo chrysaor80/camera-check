@@ -59,7 +59,7 @@ global.window = { addEventListener(){}, scrollTo(){} };
 let api;
 try {
   api = new Function(js + "; return {compute, drawWave, SECONDS, FS," +
-                     " setFrames:f=>{frames=f}, setMaxGap:g=>{maxGap=g}};")();
+                     " setFrames:f=>{frames=f}, setMaxGap:g=>{maxGap=g}, vitality};")();
   ok("페이지 전체 실행");
 } catch (e) { fail("페이지를 못 띄움: " + e.message); process.exit(1); }
 
@@ -87,6 +87,25 @@ try {
 } catch (e) {
   fail("계산 중 터짐: " + e.message + "\n       " + e.stack.split("\n")[1].trim());
 }
+
+// 6. 입력이 결과에 실제로 반영되는가
+//    화면 표기를 "남" 에서 "남자" 로 바꿨더니 성별 비교가 조용히 빗나가
+//    남성이 전부 여성으로 계산됐다. 값이 멀쩡해 보여 알아챌 수가 없었다.
+//    숫자가 나오는지만 보지 말고 입력에 따라 달라지는지를 본다.
+const vit = api.vitality;
+const m1 = vit("남", 40, 170, 70, 72, 40), m2 = vit("남자", 40, 170, 70, 72, 40);
+const f1 = vit("여", 40, 170, 70, 72, 40), f2 = vit("여자", 40, 170, 70, 72, 40);
+(m1.sbp === m2.sbp && f1.sbp === f2.sbp)
+  ? ok("성별 표기가 남/남자, 여/여자 어느 쪽이든 같은 값")
+  : fail("성별 표기에 따라 값이 달라진다 (남 " + m1.sbp + " vs 남자 " + m2.sbp
+         + ", 여 " + f1.sbp + " vs 여자 " + f2.sbp + ")");
+(m2.sbp !== f2.sbp)
+  ? ok("남녀가 서로 다른 값 (" + m2.sbp + "/" + m2.dbp + " vs " + f2.sbp + "/" + f2.dbp + ")")
+  : fail("남녀가 같은 값 — 성별이 반영되지 않는다");
+(vit("남자",70,170,70,72,40).sbp > vit("남자",20,170,70,72,40).sbp)
+  ? ok("나이가 값에 반영됨") : fail("나이를 바꿔도 값이 그대로");
+(vit("남자",40,170,95,72,40).sbp > vit("남자",40,170,50,72,40).sbp)
+  ? ok("몸무게가 값에 반영됨") : fail("몸무게를 바꿔도 값이 그대로");
 
 console.log(bad ? "\n실패 " + bad + "건" : "\n전부 통과");
 process.exit(bad ? 1 : 0);
