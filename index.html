@@ -160,7 +160,7 @@
 "use strict";
 // 화면에 박아두는 판 번호. 브라우저가 옛 페이지를 들고 있으면 결과가
 // 옛 형식으로 오는데, 그때 어느 판을 보고 있는지 바로 알기 위한 것이다.
-const VERSION = "2026-08-21 · 결과판 14";
+const VERSION = "2026-08-21 · 결과판 15";
 
 const $ = id => document.getElementById(id);
 const V=$("v"), OV=$("ov"), SAMP=$("samp"), SCX=SAMP.getContext("2d",{willReadFrequently:true});
@@ -186,11 +186,13 @@ const SDNN_RANGE = [15, 120];
 
 // 호흡
 //
-// 한 번 0.12~0.45Hz 로 넓혔다가 되돌렸다. 느리게 쉬는 사람을 담으려던
-// 것인데, 넓히고 나서 8.79 가 나왔다. 그건 넓힌 구간에서만 나올 수 있는
-// 값이다(0.147Hz). 답이 될 수 있는 자리를 늘려놓고 거기서 틀린 답을 얻은
-// 셈이라, 파이썬 원본 값으로 되돌린다.
-const RR_BAND_HZ = [0.15, 0.40], RR_NFFT = 4096, RR_RANGE = [10, 24];
+// 실제 촬영 한 건의 원시 신호를 뜯어보고 정했다. 참값 10.5 회/분인 자료에서
+// 참값 근처 봉우리가 0.153Hz(9.2회) 에 있었다. 0.15 를 하한으로 두면 그게
+// 대역 맨 끝에 걸려 엉뚱한 18.5 에 밀린다. 아래를 0.12Hz 로 내려 자리를 준다.
+//
+// 더 내리지는 않는다. 0.10Hz 부근에 호흡과 무관한 몸의 파동이 늘 있고,
+// 그 자료에서도 6.2회 자리에 센 봉우리가 있었다.
+const RR_BAND_HZ = [0.12, 0.40], RR_NFFT = 4096, RR_RANGE = [7, 24];
 
 // 봉우리가 얼마나 솟아 있는가를 **가운뎃값 대비**로 본다.
 //
@@ -515,7 +517,17 @@ function hrvOf(peaks, fs){
 }
 
 /**
- * 호흡수. 얼굴 밝기의 0.15~0.40Hz 성분에서 찾는다.
+ * 호흡수. 얼굴의 **색차** 2G-R-B 에서 찾는다.
+ *
+ * 원래는 초록 채널 밝기를 그대로 썼는데, 실제 촬영을 뜯어보니 참값 근처
+ * 봉우리가 조명 표류에 묻혀 4.8 밖에 안 됐고 엉뚱한 자리가 1등이었다.
+ * 같은 자료에서 2G-R-B 는 그 봉우리가 52.5 로 압도적 1등이 된다.
+ *
+ * 이유는 심박수에 POS 를 쓰는 것과 같다. 조명이 흔들리면 R·G·B 가 함께
+ * 움직이지만 혈류가 변하면 초록이 크게 움직인다. 2G-R-B 는 함께 움직이는
+ * 부분을 지우고 혈류만 남긴다.
+ *
+ * (주의: 실제 자료 한 건으로 정했다. 사람이 늘면 다시 봐야 한다.)
  *
  * 박동 간격의 저주파(호흡 부정맥)를 쓰는 길은 두지 않았다. 박동 간격의
  * 실효 샘플률이 심박수/60 Hz 라, 45 BPM 에서 나이퀴스트가 0.375Hz 가 되어
@@ -1084,13 +1096,18 @@ function compute(exp){
   // ── 나머지 세 값 ────────────────────────────────────────
   const peaks = detectPeaks(sig, FS, hr.bpm);
   const v = hrvOf(peaks, FS);
-  const green = [];
+  // 호흡용 색차 신호. 조명이 함께 흔드는 부분을 지운다.
+  const chrom = [];
   for(let i=0;i<len;i++){
-    let g = 0;
-    for(const k in ROI_W) g += ROI_W[k]*greenByRoi[k][i];
-    green.push(g);
+    let R=0,G=0,B=0;
+    for(const k in ROI_W){
+      R += ROI_W[k]*perRoiRaw[k][0][i];
+      G += ROI_W[k]*perRoiRaw[k][1][i];
+      B += ROI_W[k]*perRoiRaw[k][2][i];
+    }
+    chrom.push(2*G - R - B);
   }
-  const rr = respirationRate(green, FS);
+  const rr = respirationRate(chrom, FS);
 
   // 고칠 재료. 영상도 사진도 아니고 피부 세 조각의 평균 색 시계열이다.
   lastRaw = {
