@@ -113,7 +113,7 @@
 "use strict";
 // 화면에 박아두는 판 번호. 브라우저가 옛 페이지를 들고 있으면 결과가
 // 옛 형식으로 오는데, 그때 어느 판을 보고 있는지 바로 알기 위한 것이다.
-const VERSION = "2026-08-21 · 결과판 2";
+const VERSION = "2026-08-21 · 결과판 3";
 
 const $ = id => document.getElementById(id);
 const V=$("v"), OV=$("ov"), SAMP=$("samp"), SCX=SAMP.getContext("2d",{willReadFrequently:true});
@@ -331,7 +331,15 @@ function resample(times, values, fs){
 }
 
 // ── 촬영 ─────────────────────────────────────────────────────────
-let stream=null, running=false, frames=[], startAt=0, fpsInfo={n:0,fps:0};
+let stream=null, running=false, frames=[], startAt=0, fpsInfo={n:0,fps:0}, maxGap=0;
+
+// 다른 창으로 가거나 화면이 꺼지면 브라우저가 카메라 콜백을 세운다. 그 사이
+// 시간은 흘러서, 40초를 요청했는데 17.8초만 담기는 일이 생겼다. 멈추게 하고
+// 이유를 알려주는 편이 낫다 — 반쪽짜리 자료로 나온 값이 더 나쁘다.
+document.addEventListener("visibilitychange", function(){
+  if(document.hidden && running)
+    stop("촬영이 멈췄습니다.\n다른 창으로 가면 카메라가 멈춥니다. 이 화면을 열어둔 채로 해주세요.");
+});
 
 function contentRect(){
   // object-fit: contain 으로 그려진 실제 영상 영역
@@ -349,19 +357,35 @@ function drawGuide(){
   const cx = OV.getContext("2d");
   const r = contentRect();
   cx.clearRect(0,0,OV.width,OV.height);
-  cx.strokeStyle = "rgba(255,255,255,.85)";
-  cx.lineWidth = 3;
-  cx.setLineDash([10,8]);
-  cx.beginPath();
-  cx.ellipse(r.x+r.w*OVAL.cx, r.y+r.h*OVAL.cy, r.w*OVAL.rx, r.h*OVAL.ry, 0, 0, Math.PI*2);
-  cx.stroke();
+
+  // 밝은 화면에서는 흰 선이 안 보인다. 실제로 안내 타원이 사라져서 어디에
+  // 맞춰야 할지 알 수 없었다. 어두운 선을 깔고 그 위에 밝은 선을 얹는다.
+  const stroke = (draw, dark, light, w) => {
+    cx.lineWidth = w+3; cx.strokeStyle = dark;  draw();
+    cx.lineWidth = w;   cx.strokeStyle = light; draw();
+  };
+
+  const oval = () => {
+    cx.beginPath();
+    cx.ellipse(r.x+r.w*OVAL.cx, r.y+r.h*OVAL.cy, r.w*OVAL.rx, r.h*OVAL.ry, 0, 0, Math.PI*2);
+    cx.stroke();
+  };
+  cx.setLineDash([12,9]);
+  stroke(oval, "rgba(0,0,0,.55)", "rgba(255,255,255,.95)", 3);
   cx.setLineDash([]);
-  cx.strokeStyle = "rgba(120,230,180,.9)";
-  cx.lineWidth = 2;
+
   for(const k in ROIS){
     const o = ROIS[k];
-    cx.strokeRect(r.x+r.w*(o.x-o.w/2), r.y+r.h*(o.y-o.h/2), r.w*o.w, r.h*o.h);
+    const box = () => cx.strokeRect(r.x+r.w*(o.x-o.w/2), r.y+r.h*(o.y-o.h/2), r.w*o.w, r.h*o.h);
+    stroke(box, "rgba(0,0,0,.55)", "rgba(60,255,170,.95)", 2);
   }
+
+  const label = "이 타원 안에 얼굴을 가득 채우세요";
+  cx.font = "bold 15px system-ui, sans-serif";
+  cx.textAlign = "center";
+  const lx = r.x + r.w*0.5, ly = r.y + Math.max(18, r.h*0.06);
+  cx.lineWidth = 4; cx.strokeStyle = "rgba(0,0,0,.6)"; cx.strokeText(label, lx, ly);
+  cx.fillStyle = "#fff"; cx.fillText(label, lx, ly);
 }
 
 // 영역마다 getImageData 를 부르면 그때마다 그래픽카드에서 화면을 읽어와야
@@ -405,8 +429,15 @@ function sampleFrame(){
  *   **노출 고정에 실패하면 화이트밸런스는 건드리지 않는다.** 색만 엉뚱한 값에
  *   묶여서 화면이 이상해 보이고 얻는 것은 없다. 실제로 그렇게 됐었다.
  */
+/** 이마 칸의 밝기. 노출을 얼마나 줄여도 되는지 판단하는 데 쓴다. */
+function skinBrightness(){
+  const f = sampleFrame().forehead;
+  return 0.299*f[0] + 0.587*f[1] + 0.114*f[2];
+}
+
 async function lockExposure(track){
-  const info = { supported:false, locked:false, wb:false, why:"" };
+  const info = { supported:false, locked:false, wb:false, why:"",
+                 exposure:null, bright:null, tried:[] };
   const settle = ms => new Promise(r=>setTimeout(r,ms));
   try{
     const caps = track.getCapabilities ? track.getCapabilities() : {};
@@ -431,10 +462,32 @@ async function lockExposure(track){
     }
     if(!info.locked) return info;
 
-    // 자동이 고른 노출 시간을 그대로 못 박는다. 못 읽으면 그냥 둔다 —
-    // 임의의 값을 넣으면 방이 어두워지거나 하얗게 날아간다.
-    if(typeof cur.exposureTime === "number"){
-      try{ await track.applyConstraints({advanced:[{exposureTime:cur.exposureTime}]}); }catch(e){}
+    // 노출 시간을 **짧은 쪽부터** 시도한다.
+    //
+    // 자동이 고른 값을 그대로 붙잡았더니 1250(=125밀리초)이 걸렸다. 그러면
+    // 초당 8장밖에 못 들어오고(1÷0.125) 화면이 하얗게 날아간다. 실제로 그렇게
+    // 됐다. 맥박을 보려면 밝기보다 **장수가 먼저**다.
+    //
+    //   1/60초  30장 유지 · 60Hz 조명의 줄무늬도 피한다
+    //   1/30초  30장 유지
+    //   1/15초  15장까지 떨어지지만 어두운 방에서는 어쩔 수 없다
+    const r = caps.exposureTime;
+    if(r && typeof r.min === "number"){
+      const snap = v => {
+        let x = Math.max(r.min, Math.min(r.max, v));
+        if(r.step) x = Math.round(x/r.step)*r.step;
+        return Math.max(r.min, Math.min(r.max, x));
+      };
+      for(const want of [166.7, 333.3, 666.7]){
+        const v = snap(want);
+        try{ await track.applyConstraints({advanced:[{exposureTime:v}]}); }catch(e){}
+        await settle(700);
+        const bright = skinBrightness();
+        info.tried.push(v.toFixed(0) + "→" + bright.toFixed(0));
+        info.exposure = track.getSettings().exposureTime;
+        info.bright = bright;
+        if(bright >= 55) break;          // 이 정도면 신호를 뽑을 만하다
+      }
     }
 
     // 색은 고정할 값을 아는 경우에만 잠근다.
@@ -489,7 +542,7 @@ async function start(){
   $("s-run").classList.remove("hide");
   $("status").textContent = "카메라를 켜는 중";
   $("prog").style.width = "0%";
-  frames = []; running = true;
+  frames = []; running = true; maxGap = 0;
 
   try{
     stream = await navigator.mediaDevices.getUserMedia({
@@ -527,6 +580,10 @@ async function start(){
     if(!startAt) startAt = now;
     const t = (now - startAt)/1000;
     if(t >= SECONDS){ finish(exp); return; }
+    if(frames.length){
+      const gap = t - frames[frames.length-1].t;
+      if(gap > maxGap) maxGap = gap;
+    }
     frames.push({ t:t, roi: sampleFrame() });
     $("prog").style.width = Math.min(100, t/SECONDS*100) + "%";
     $("status").textContent = "촬영 중 · " + Math.ceil(SECONDS - t) + "초 남음";
@@ -585,11 +642,13 @@ function finish(exp){
   // 경계에 걸리면 맥박처럼 보이는 값이 나온다. 실제로 48 이 그렇게 나왔다.
   const atEdge = hr.bpm <= HR_RANGE[0] + 5 || hr.bpm >= HR_RANGE[1] - 5;
   const slow   = fpsInfo.fps < 15;
-  const good   = hr.kurtosis >= 0.30 && hr.spread <= 6 && !atEdge && !slow;
+  const choppy = maxGap > 1.0;
+  const good   = hr.kurtosis >= 0.30 && hr.spread <= 6 && !atEdge && !slow && !choppy;
 
   let why = [];
   if(atEdge) why.push("봉우리가 찾는 범위의 끝에 걸렸습니다. 맥박이 아니라 조명이나 몸의 흔들림일 수 있습니다.");
   if(slow)   why.push("초당 " + fpsInfo.fps.toFixed(1) + "장밖에 못 찍었습니다. 다른 창을 닫고 다시 해보세요.");
+  if(choppy) why.push("촬영이 " + maxGap.toFixed(1) + "초 끊겼습니다. 다른 창으로 가지 말고 이 화면을 열어둔 채로 해주세요.");
   if(!exp.locked) why.push("밝기가 고정되지 않았습니다. 카메라가 밝기를 조절하면서 신호를 지웁니다.");
   if(hr.kurtosis < 0.30) why.push("봉우리가 뚜렷하지 않습니다. 더 밝은 곳에서 해보세요.");
 
@@ -610,7 +669,11 @@ function finish(exp){
     row("밝기 고정", exp.locked ? "O 고정됨"
         : (exp.supported ? "X 안 먹음" : "X 지원 안 함") +
           (exp.why ? ' <span class="muted">(' + exp.why + ')</span>' : "")) +
-    row("색 고정", exp.wb ? "O 고정됨" : "— 건드리지 않음");
+    row("잡은 노출", exp.exposure
+        ? (exp.exposure/10).toFixed(1) + " ms · 얼굴 밝기 " + (exp.bright||0).toFixed(0)
+        : "—") +
+    row("색 고정", exp.wb ? "O 고정됨" : "— 건드리지 않음") +
+    row("가장 긴 끊김", maxGap.toFixed(2) + " 초" + (maxGap > 1 ? "  (촬영이 끊겼습니다)" : ""));
 
   window.__report = [
     "== 얼굴 촬영 시험 ==",
@@ -623,6 +686,10 @@ function finish(exp){
     "장수: " + fpsInfo.n + " · 초당 " + fpsInfo.fps.toFixed(2) + " · 길이 " + secs.toFixed(1) + "초",
     "밝기 고정: 지원 " + exp.supported + " / 적용 " + exp.locked + " / 색 " + exp.wb
       + (exp.why ? " / " + exp.why : ""),
+    "노출: " + (exp.exposure ? (exp.exposure/10).toFixed(2) + "ms" : "-")
+      + " / 얼굴 밝기 " + (exp.bright!=null ? exp.bright.toFixed(1) : "-")
+      + " / 시도 " + exp.tried.join(", "),
+    "가장 긴 끊김: " + maxGap.toFixed(2) + "초",
     "판정: " + (good ? "양호" : "믿기 어려움 — " + why.join(" | "))
   ].join("\n");
 }
