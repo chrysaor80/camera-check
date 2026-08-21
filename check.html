@@ -114,7 +114,7 @@
 <script>
 "use strict";
 
-const VERSION = "2026-08-21 · 진단판 1";
+const VERSION = "2026-08-21 · 확인판 2";
 const $ = (id) => document.getElementById(id);
 const V = $("v"), C = $("c"), CX = C.getContext("2d", { willReadFrequently: true });
 $("ver").textContent = "화면 판 " + VERSION;
@@ -332,7 +332,7 @@ async function run() {
       note("  요청 " + s.asked + " -> 적용 " + s.got +
            " | 밝기 " + s.brightness.toFixed(2) + (s.accepted ? "" : "  (거부됨)"));
     }
-    note("밝기 차: " + exp.spread.toFixed(2) + " (기준 " + SPREAD_PASS + " 이상)");
+    note("밝기 차: " + exp.spread.toFixed(2) + " (기준 " + SPREAD_PASS + " 을 넘어야 함)");
     note("");
     note("capabilities:");
     note(JSON.stringify(caps, null, 1));

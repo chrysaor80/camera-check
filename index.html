@@ -41,7 +41,7 @@
   /* 스크롤은 화면이 아니라 **안쪽 상자**가 맡는다.
    *
    * 처음에 .screen.roll{display:block} 으로 만들었더니 .screen.hide 와
-   * 우선순위가 같아서 뒤에 온 roll 이 이겼다. 숨겨야 할 진단 화면이
+   * 우선순위가 같아서 뒤에 온 roll 이 이겼다. 숨겨야 할 자세히 화면이
    * 늘 보였고 position:fixed 라 첫 화면을 덮었다. 클래스끼리 display 를
    * 다투게 하지 않는 편이 안전하다. */
   .rollinner{flex:1 1 auto;min-height:0;overflow-y:auto;
@@ -258,7 +258,7 @@
 "use strict";
 // 화면에 박아두는 판 번호. 브라우저가 옛 페이지를 들고 있으면 결과가
 // 옛 형식으로 오는데, 그때 어느 판을 보고 있는지 바로 알기 위한 것이다.
-const VERSION = "2026-08-21 · 화면판 22";
+const VERSION = "2026-08-21 · 화면판 23";
 
 const $ = id => document.getElementById(id);
 const V=$("v"), OV=$("ov"), SAMP=$("samp"), SCX=SAMP.getContext("2d",{willReadFrequently:true});
@@ -559,7 +559,14 @@ function heartRateWindowed(x, fs){
   const win = Math.round(HR_WIN*fs), hop = Math.round(HR_HOP*fs);
   const est=[], kur=[];
   if(x.length >= win){
-    for(let s=0; s+win<=x.length; s+=hop){
+    // 촬영이 40초에서 한 장이라도 모자라면(실제로 39.97초 = 1199 샘플) 세 번째
+    // 창이 통째로 버려져 둘만 남는다. 둘의 「중앙값」은 둘 중 큰 값이라 위로
+    // 치우친다. 끝에서 반 홉 넘게 남으면 끝에 맞춘 창을 하나 더 잰다.
+    const starts = [];
+    for(let s=0; s+win<=x.length; s+=hop) starts.push(s);
+    const lastEnd = starts[starts.length-1] + win;
+    if(x.length - lastEnd > hop/2) starts.push(x.length - win);
+    for(const s of starts){
       const r = heartRate(x.slice(s, s+win), fs);
       if(r){ est.push(r.bpm); kur.push(r.kurtosis); }
     }
@@ -650,7 +657,8 @@ function hrvOf(peaks, fs){
  * 움직이지만 혈류가 변하면 초록이 크게 움직인다. 2G-R-B 는 함께 움직이는
  * 부분을 지우고 혈류만 남긴다.
  *
- * (주의: 실제 자료 한 건으로 정했다. 사람이 늘면 다시 봐야 한다.)
+ * 참값이 붙은 실측 네 건(분당 7.5 / 10.5 / 12.0 / 13.5)에서 평균 오차 0.61.
+ * 다만 전부 같은 사람·같은 기기다. 사람이 늘면 다시 봐야 한다.
  *
  * 박동 간격의 저주파(호흡 부정맥)를 쓰는 길은 두지 않았다. 박동 간격의
  * 실효 샘플률이 심박수/60 Hz 라, 45 BPM 에서 나이퀴스트가 0.375Hz 가 되어
@@ -692,10 +700,6 @@ function respirationRate(green, fs){
   }
   if(k < 0 || !bins) return null;
 
-  // 2배 주파수 방어. 숨은 사인파가 아니라 들이쉬고 내쉬는 두 마디라
-  // 2배 성분이 기본보다 세게 나오는 일이 흔하다. 실제로 분당 11.5 회로
-  // 쉬는 사람에게서 23.29 가 나왔다. 심박수에는 있던 방어가 여기엔 없었다.
-  // 절반이 **국소 최대**이면서 충분히 셀 때만 바꾼다.
   const raw = k*fs/N*60;
 
   // 대역 안 칸들의 가운뎃값. 봉우리 자신과 낮은 쪽 표류에 끌려가지 않는다.
@@ -801,7 +805,11 @@ function resample(times, values, fs){
 // ── 촬영 ─────────────────────────────────────────────────────────
 // 사전 입력. 5 단위 버튼으로 고른다 — 숫자를 적게 하면 키보드가 올라오고
 // 오타가 난다. 어디에도 저장하지 않고 이번 계산에만 쓴다.
-const me = { sex:"남", age:40, height:170, weight:70 };
+const me = { sex:"남자", age:40, height:170, weight:70 };
+function clearPicked(id){
+  const box = $(id); if(!box) return;
+  Array.prototype.forEach.call(box.children, function(c){ c.className = ""; });
+}
 
 function picker(id, key, values, fmt, next){
   const box = $(id);
@@ -946,7 +954,7 @@ function sampleFrame(){
  *   getSettings 로 정말 바뀌었는지 보고, 안 바뀌었으면 평범한 형태로 한 번 더 넣는다.
  *
  *   **노출 고정에 실패하면 화이트밸런스는 건드리지 않는다.** 색만 엉뚱한 값에
- *   묶여서 화면이 이상해 보이고 얻는 것은 없다. 실제로 그렇게 됐었다.
+ *   묶여서 화면 색이 엉뚱해 보이고 얻는 것은 없다. 실제로 그렇게 됐었다.
  */
 /** 이마 칸의 밝기. 노출을 얼마나 줄여도 되는지 판단하는 데 쓴다. */
 function skinBrightness(){
@@ -1044,20 +1052,6 @@ function drawWave(canvas, data, color){
   cx.stroke();
 }
 
-/** 촬영 중 보여줄 파형. 이마 초록 채널에서 천천한 변화를 뺀 것. */
-function liveWave(){
-  const g = frames.slice(-360).map(f => f.roi.forehead[1]);
-  if(g.length < 60) return [];
-  const k = 45;                                   // 1.5초쯤의 이동평균
-  const out = [];
-  for(let i=0;i<g.length;i++){
-    const a = Math.max(0,i-k), b = Math.min(g.length,i+k+1);
-    let m=0; for(let j=a;j<b;j++) m+=g[j];
-    out.push(g[i] - m/(b-a));
-  }
-  return out.slice(k, Math.max(k+4, out.length-k));
-}
-
 async function start(){
   goTo("s-run");
   $("status").textContent = "카메라를 켜는 중";
@@ -1065,7 +1059,11 @@ async function start(){
   $("align").classList.add("hide");
   $("capture").classList.add("hide");
   frames = []; running = true; maxGap = 0; warned = false;
-  $("begin").textContent = "이대로 시작";
+  $("begin").textContent = "이대로 찍습니다";
+  // 지난 촬영의 것이 이번 것으로 둔갑하지 않게. 실제 호흡 횟수는 이번 40초의
+  // 것이어야 하고, 파일은 이번 신호여야 한다. 전에는 둘 다 그대로 남았다.
+  lastRaw = null; window.__report = null;
+  me.breaths = null; clearPicked("p-brt");
 
   try{
     stream = await navigator.mediaDevices.getUserMedia({
@@ -1147,9 +1145,7 @@ function finish(exp){
     running = false;
     if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
     goTo("s-out");
-    $("verdict").className = "banner bad";
-    $("verdict").textContent = "계산 중에 문제가 생겼습니다.\n아래 내용을 복사해 보내주세요.";
-    $("tbl").innerHTML = "";
+    showFail("계산 중에 문제가 생겼습니다.\n「자세히」에서 결과를 복사해 보내주세요.");
     window.__report = [
       "== 얼굴 촬영 시험 ==",
       "화면 판: " + VERSION,
@@ -1175,6 +1171,11 @@ function showFail(msg){
   $("verdict2").className = "banner bad";
   $("verdict2").textContent = msg;
   $("tbl").innerHTML = "";
+  drawWave($("wave2"), [], "#0e6e8c");          // 지난 촬영의 파형이 남지 않게
+  lastRaw = null;                                // 지난 촬영의 파일이 나가지 않게
+  window.__report = "== 얼굴 촬영 시험 ==" + "\n" + "화면 판: " + VERSION
+    + "\n" + "실패: " + msg.replace(/\n/g, " ")
+    + "\n" + "브라우저: " + navigator.userAgent;
 }
 
 function compute(exp){
@@ -1185,10 +1186,9 @@ function compute(exp){
   fpsInfo = { n: frames.length, fps: frames.length/secs };
 
   // ROI 별로 균일 격자에 얹고 POS → 대역통과 → 가중 합
-  const perRoi = {}, greenByRoi = {}, perRoiRaw = {};
+  const perRoi = {}, perRoiRaw = {};
   for(const k in ROI_REL){
     const rs = [0,1,2].map(c => resample(times, frames.map(f=>f.roi[k][c]), FS));
-    greenByRoi[k] = rs[1];
     perRoiRaw[k] = rs;
     const n = Math.min(rs[0].length, rs[1].length, rs[2].length);
     const rgb = new Array(n);
@@ -1210,10 +1210,8 @@ function compute(exp){
   goTo("s-out");
 
   if(!hr){
-    $("verdict").className = "banner bad";
-    $("verdict").textContent = "신호를 뽑지 못했습니다.\n더 밝은 곳에서 다시 해보세요.";
-    $("tbl").innerHTML = "";
-    window.__report = "실패: 신호 없음 · 장수 " + fpsInfo.n;
+    showFail("신호를 뽑지 못했습니다.\n더 밝은 곳에서 다시 해보세요.");
+    window.__report += "\n" + "장수: " + fpsInfo.n + " · 초당 " + fpsInfo.fps.toFixed(1);
     return;
   }
 
@@ -1235,7 +1233,7 @@ function compute(exp){
   if(hr.kurtosis < 0.30) why.push("봉우리가 뚜렷하지 않습니다. 더 밝은 곳에서 해보세요.");
 
   $("verdict2").className = "banner " + (good ? "ok" : "info");
-  $("verdict").textContent = good
+  $("verdict2").textContent = good
     ? "잘 잡혔습니다."
     : "이 값은 믿기 어렵습니다.\n" + why.join("\n");
   $("verdict").textContent = good ? "잘 나왔습니다" : "값이 흔들렸습니다";
@@ -1258,7 +1256,8 @@ function compute(exp){
 
   // 고칠 재료. 영상도 사진도 아니고 피부 세 조각의 평균 색 시계열이다.
   const sdnn = (v && v.ok) ? v.sdnn : 45;         // 못 구하면 기준점으로 둔다
-  const vit = vitality(me.sex, me.age, me.height, me.weight, hr.bpm, sdnn);
+  const vit = vitality(me.sex || "남자", me.age || 40, me.height || 170, me.weight || 70,
+                       hr.bpm, sdnn);
 
   lastRaw = {
     판: VERSION, 시각: new Date().toISOString(), 브라우저: navigator.userAgent,
@@ -1287,7 +1286,7 @@ function compute(exp){
     })()
   };
 
-  // 봉우리·세기·등급 같은 진단값은 여기 넣지 않는다. 손님이 볼 것이 아니고,
+  // 봉우리·세기·등급 같은 점검값은 여기 넣지 않는다. 손님이 볼 것이 아니고,
   // 넣으면 칸이 좁아져 정작 큰 숫자가 안 보인다. 「자세히」에 다 있다.
   const cell = (val, unit, label) =>
     "<div><b>" + val + "</b>" +
@@ -1306,7 +1305,7 @@ function compute(exp){
     row("찍힌 장수", fpsInfo.n + " 장 · 초당 " + fpsInfo.fps.toFixed(1)) +
     row("창별 추정치", hr.estimates.map(v=>v.toFixed(1)).join(" / ")) +
     row("추정치 흩어짐", hr.spread.toFixed(2) + " (작을수록 좋음)") +
-    row("봉우리 뚜렷함", hr.kurtosis.toFixed(3) + " (0.30 이상이면 양호)") +
+    row("봉우리 뚜렷함", hr.kurtosis.toFixed(3) + " (0.30 을 넘으면 양호)") +
     row("밝기 고정", exp.locked ? "O 고정됨"
         : (exp.supported ? "X 안 먹음" : "X 지원 안 함") +
           (exp.why ? ' <span class="muted">(' + exp.why + ')</span>' : "")) +
@@ -1370,7 +1369,12 @@ $("go").addEventListener("click", function(){ goTo("s-sex"); });
 $("ready").addEventListener("click", start);
 $("detail").addEventListener("click", function(){ goTo("s-diag"); });
 $("closeDetail").addEventListener("click", function(){ goTo("s-out"); });
-$("again").addEventListener("click", function(){ goTo("s-intro"); });
+$("again").addEventListener("click", function(){
+  // 앞사람이 고른 것이 켜진 채로 다음 사람에게 가지 않게 한다
+  me.sex = null; me.age = null; me.height = null; me.weight = null; me.breaths = null;
+  ["p-sex","p-age","p-hei","p-wei","p-brt"].forEach(clearPicked);
+  goTo("s-intro");
+});
 $("stop").addEventListener("click", function(){ stop(null); });
 let warned = false;
 $("begin").addEventListener("click", function(){
@@ -1398,7 +1402,7 @@ $("bigger").addEventListener("click",  function(){ resize(1.12); });
 $("save").addEventListener("click", function(){
   if(!lastRaw){ $("savenote").textContent = "저장할 것이 없습니다."; return; }
   lastRaw.실제호흡횟수_40초 = me.breaths;      // 고를 때만 들어간다
-  const stamp = new Date().toISOString().replace(/[-:T]/g,"").slice(0,13);
+  const stamp = new Date().toISOString().replace(/[-:T]/g,"").slice(0,14);
   const name = "rppg_" + stamp + ".json";
   const blob = new Blob([JSON.stringify(lastRaw)], {type:"application/json"});
   try{
