@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>카메라 확인</title>
+<style>
+  :root {
+    --ink:#12212e; --muted:#5a6b7b; --line:#cfd8e3; --bg:#edf1f5;
+    --surface:#fff; --brand:#0e6e8c;
+    --ok-bg:#e6f4ec; --ok-ink:#0a6b45;
+    --bad-bg:#fbebe9; --bad-ink:#a4231b;
+    --info-bg:#e8f1f6;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Malgun Gothic","맑은 고딕","Noto Sans KR",system-ui,sans-serif;
+    line-height:1.65; font-size:17px;
+  }
+  .wrap { max-width:680px; margin:0 auto; padding:24px 16px 64px; }
+  .card {
+    background:var(--surface); border:1px solid var(--line);
+    border-radius:16px; padding:28px 24px; margin:0 0 20px;
+  }
+  h1 { font-size:28px; margin:0 0 10px; }
+  h2 { font-size:19px; margin:28px 0 10px; }
+  p { margin:0 0 14px; }
+  .muted { color:var(--muted); font-size:15px; }
+  button {
+    width:100%; border:0; border-radius:10px; padding:20px;
+    font-size:20px; font-weight:700; font-family:inherit;
+    background:var(--brand); color:#fff; cursor:pointer;
+  }
+  button:disabled { opacity:.45; cursor:default; }
+  button.ghost {
+    background:var(--surface); color:var(--brand);
+    border:2px solid var(--brand); font-size:17px; padding:14px;
+  }
+  .banner {
+    border-radius:12px; padding:20px; font-weight:700; font-size:19px;
+    margin:0 0 18px; white-space:pre-line;
+  }
+  .banner.ok   { background:var(--ok-bg);   color:var(--ok-ink); }
+  .banner.bad  { background:var(--bad-bg);  color:var(--bad-ink); }
+  .banner.info { background:var(--info-bg); color:var(--brand); }
+  table { width:100%; border-collapse:collapse; font-size:16px; }
+  th, td { text-align:left; padding:11px 4px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; width:44%; }
+  td b.y { color:var(--ok-ink); }
+  td b.n { color:var(--bad-ink); }
+  select { width:100%; padding:12px; font-size:16px; font-family:inherit;
+           border:2px solid var(--line); border-radius:10px; background:#f7f9fb; }
+  textarea {
+    width:100%; height:220px; font-family:ui-monospace,Consolas,monospace;
+    font-size:12px; border:2px solid var(--line); border-radius:10px;
+    padding:12px; background:#f7f9fb; color:var(--ink);
+  }
+  .steps { margin:0; padding-left:20px; color:var(--muted); font-size:15px; }
+  .steps li { margin:4px 0; }
+  video, canvas { display:none; }
+  .hide { display:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="card">
+    <h1>카메라 확인</h1>
+    <p>이 기기의 카메라로 <b>얼굴 영상 분석이 가능한지</b> 봅니다.<br>
+       버튼을 누르고 <b>20초쯤</b> 그대로 두시면 됩니다.</p>
+    <p class="muted">
+      촬영본은 이 기기 밖으로 <b>나가지 않습니다.</b>
+      인터넷으로 보내지 않고 저장하지도 않습니다. 화면에서 확인하고 끝납니다.
+    </p>
+
+    <div id="pick" class="hide">
+      <h2>카메라 고르기</h2>
+      <select id="cams"></select>
+      <p class="muted" style="margin-top:10px">
+        여러 개면 하나씩 해보셔도 됩니다. 얼굴을 찍을 카메라를 고르세요.
+      </p>
+    </div>
+
+    <p style="margin-top:22px">
+      <button id="go">확인 시작</button>
+    </p>
+    <div id="progress" class="hide">
+      <ol class="steps" id="steps"></ol>
+    </div>
+  </div>
+
+  <div id="result" class="card hide">
+    <div id="verdict" class="banner"></div>
+    <table id="table"></table>
+
+    <h2>결과 보내기</h2>
+    <p class="muted">아래 내용을 통째로 복사해서 개발자에게 보내주세요.</p>
+    <p><button id="copy" class="ghost">결과 복사하기</button></p>
+    <textarea id="report" readonly></textarea>
+    <p style="margin-top:18px"><button id="again" class="ghost">다시 확인</button></p>
+  </div>
+
+  <p class="muted" style="text-align:center">
+    카메라 성능만 확인하는 페이지입니다. 아무것도 저장하지 않습니다.
+  </p>
+</div>
+
+<video id="v" playsinline muted autoplay></video>
+<canvas id="c" width="160" height="120"></canvas>
+
+<script>
+"use strict";
+
+const $ = (id) => document.getElementById(id);
+const V = $("v"), C = $("c"), CX = C.getContext("2d", { willReadFrequently: true });
+
+// 밝기 시험에서 이만큼은 변해야 "정말로 고정이 먹었다" 고 본다.
+// 안드로이드 앱의 시험과 같은 기준을 쓴다.
+const SPREAD_PASS = 5.0;
+
+let stream = null, log = [];
+
+function note(s) { log.push(s); }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function step(text, state) {
+  const ol = $("steps");
+  let li = ol.querySelector(`[data-k="${text}"]`);
+  if (!li) { li = document.createElement("li"); li.dataset.k = text; ol.appendChild(li); }
+  li.textContent = (state === "done" ? "✓ " : "… ") + text;
+  li.style.color = state === "done" ? "var(--ok-ink)" : "var(--muted)";
+}
+
+/** 화면 한 장의 평균 밝기. 사람 눈이 느끼는 밝기에 맞춰 가중치를 준다. */
+function brightness() {
+  CX.drawImage(V, 0, 0, C.width, C.height);
+  const d = CX.getImageData(0, 0, C.width, C.height).data;
+  let sum = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    sum += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+  }
+  return sum / (d.length / 4);
+}
+
+/**
+ * 실제로 들어오는 프레임 간격을 잰다.
+ *
+ * 설정값이 30 이라고 적혀 있어도 실제로는 27 로 들어오는 일이 있다. 그러면
+ * 심박수가 그 비율만큼 어긋난다. 적힌 값 말고 들어온 시각을 직접 본다.
+ */
+async function measureFps(ms) {
+  const t = [];
+  const useVFC = typeof V.requestVideoFrameCallback === "function";
+  if (useVFC) {
+    await new Promise(done => {
+      const started = performance.now();
+      const tick = (now) => {
+        t.push(now);
+        if (now - started < ms) V.requestVideoFrameCallback(tick); else done();
+      };
+      V.requestVideoFrameCallback(tick);
+    });
+  } else {
+    await new Promise(done => {
+      const started = performance.now();
+      const tick = () => {
+        t.push(performance.now());
+        if (performance.now() - started < ms) requestAnimationFrame(tick); else done();
+      };
+      requestAnimationFrame(tick);
+    });
+  }
+  if (t.length < 3) return { fps: 0, jitter: 0, method: useVFC ? "정확" : "대략", n: t.length };
+  const gaps = [];
+  for (let i = 1; i < t.length; i++) gaps.push(t[i] - t[i - 1]);
+  const mean = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+  const sd = Math.sqrt(gaps.reduce((a, b) => a + (b - mean) ** 2, 0) / gaps.length);
+  return { fps: 1000 / mean, jitter: sd, method: useVFC ? "정확" : "대략", n: t.length };
+}
+
+/**
+ * 밝기를 한 값에 고정할 수 있는지 본다.
+ *
+ * 지원한다고 적혀 있는 것만으로는 믿을 수 없다. 드라이버가 값을 받고도
+ * 무시하는 경우가 있다. 노출 시간을 바꿔가며 **화면이 실제로 밝아졌다
+ * 어두워지는지**를 눈으로 확인하듯 재서 판정한다.
+ */
+async function exposureTest(track, caps) {
+  const out = { supported: false, applied: false, steps: [], spread: 0 };
+  const modes = caps.exposureMode || [];
+  out.supported = modes.includes("manual");
+  if (!out.supported) return out;
+
+  try {
+    await track.applyConstraints({ advanced: [{ exposureMode: "manual" }] });
+  } catch (e) {
+    out.error = "노출 고정 전환 실패: " + e.name;
+    return out;
+  }
+  await sleep(500);
+  out.applied = (track.getSettings().exposureMode === "manual");
+
+  const r = caps.exposureTime;
+  let values;
+  if (r && typeof r.min === "number" && typeof r.max === "number") {
+    const lo = r.min, hi = r.max;
+    values = [0.15, 0.35, 0.6, 0.9].map(f => {
+      let v = lo + (hi - lo) * f;
+      if (r.step) v = Math.round(v / r.step) * r.step;
+      return Math.min(hi, Math.max(lo, v));
+    });
+  } else {
+    out.error = "노출 시간 범위를 알려주지 않는다";
+    return out;
+  }
+
+  for (const v of values) {
+    let ok = true;
+    try {
+      await track.applyConstraints({ advanced: [{ exposureTime: v }] });
+    } catch (e) { ok = false; }
+    await sleep(700);
+    out.steps.push({
+      asked: v,
+      got: track.getSettings().exposureTime,
+      brightness: brightness(),
+      accepted: ok
+    });
+  }
+  const bs = out.steps.map(s => s.brightness);
+  out.spread = Math.max(...bs) - Math.min(...bs);
+  return out;
+}
+
+function row(label, value) {
+  return `<tr><th>${label}</th><td>${value}</td></tr>`;
+}
+const yes = (b) => b ? '<b class="y">O 됩니다</b>' : '<b class="n">X 안 됩니다</b>';
+
+async function run() {
+  $("go").disabled = true;
+  $("progress").classList.remove("hide");
+  $("result").classList.add("hide");
+  $("steps").innerHTML = "";
+  log = [];
+
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error("이 브라우저는 카메라를 쓸 수 없습니다. 크롬으로 열어주세요.");
+    }
+    step("카메라 권한 받기");
+    const chosen = $("cams").value;
+    const want = { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } };
+    if (chosen) want.deviceId = { exact: chosen }; else want.facingMode = "user";
+    stream = await navigator.mediaDevices.getUserMedia({ video: want, audio: false });
+    V.srcObject = stream;
+    await V.play().catch(() => {});
+    await sleep(900);
+    step("카메라 권한 받기", "done");
+
+    // 권한을 받아야 카메라 이름이 보인다. 목록을 여기서 채운다.
+    await fillCameras();
+
+    const track = stream.getVideoTracks()[0];
+    const caps = track.getCapabilities ? track.getCapabilities() : {};
+    const set = track.getSettings ? track.getSettings() : {};
+
+    step("화면 크기와 속도 재기 (3초)");
+    const base = brightness();
+    const fps = await measureFps(3000);
+    step("화면 크기와 속도 재기 (3초)", "done");
+
+    step("밝기 고정 시험 (10초)");
+    const exp = await exposureTest(track, caps);
+    step("밝기 고정 시험 (10초)", "done");
+
+    const wbManual = (caps.whiteBalanceMode || []).includes("manual");
+    const realFix = exp.supported && exp.applied && exp.spread >= SPREAD_PASS;
+
+    // ── 판정 ──────────────────────────────────────────────
+    let cls, verdict;
+    if (realFix) {
+      cls = "ok";
+      verdict = "통과했습니다.\n이 카메라는 밝기를 고정할 수 있습니다.";
+    } else if (exp.supported) {
+      cls = "bad";
+      verdict = "밝기 고정이 실제로는 먹지 않았습니다.\n" +
+                "된다고 적혀 있지만 화면이 따라 바뀌지 않았습니다.";
+    } else {
+      cls = "bad";
+      verdict = "이 브라우저에서는 밝기를 고정할 수 없습니다.\n" +
+                "괜찮습니다. 그것도 저희에게는 중요한 정보입니다.";
+    }
+    $("verdict").className = "banner " + cls;
+    $("verdict").textContent = verdict;
+
+    $("table").innerHTML =
+      row("카메라", (set.label || track.label || "이름 없음")) +
+      row("화면 크기", `${set.width || "?"} x ${set.height || "?"}`) +
+      row("실제 속도", `${fps.fps.toFixed(1)} 장/초  <span class="muted">(설정값 ${set.frameRate || "?"})</span>`) +
+      row("속도 흔들림", `${fps.jitter.toFixed(1)} ms`) +
+      row("밝기 고정 지원", yes(exp.supported)) +
+      row("밝기 고정 실측", exp.supported
+            ? `${yes(exp.spread >= SPREAD_PASS)} <span class="muted">(밝기 차 ${exp.spread.toFixed(1)})</span>`
+            : '<span class="muted">— 지원하지 않아 시험 못 함</span>') +
+      row("화이트밸런스 고정", yes(wbManual));
+
+    // ── 보고서 ────────────────────────────────────────────
+    note("== 브라우저 카메라 확인 ==");
+    note("시각: " + new Date().toISOString());
+    note("주소: " + location.href);
+    note("브라우저: " + navigator.userAgent);
+    note("화면: " + screen.width + "x" + screen.height + " @" + devicePixelRatio);
+    note("");
+    note("[판정] " + verdict.replace(/\n/g, " "));
+    note("");
+    note("카메라: " + (set.label || track.label || "이름 없음"));
+    note("크기: " + set.width + "x" + set.height);
+    note("실측 속도: " + fps.fps.toFixed(2) + " 장/초 (" + fps.method +
+         ", 표본 " + fps.n + ", 흔들림 " + fps.jitter.toFixed(2) + "ms)");
+    note("기준 밝기(자동): " + base.toFixed(2));
+    note("");
+    note("노출 고정 지원: " + exp.supported + " / 적용됨: " + exp.applied);
+    if (exp.error) note("오류: " + exp.error);
+    for (const s of exp.steps) {
+      note("  요청 " + s.asked + " -> 적용 " + s.got +
+           " | 밝기 " + s.brightness.toFixed(2) + (s.accepted ? "" : "  (거부됨)"));
+    }
+    note("밝기 차: " + exp.spread.toFixed(2) + " (기준 " + SPREAD_PASS + " 이상)");
+    note("");
+    note("capabilities:");
+    note(JSON.stringify(caps, null, 1));
+    note("settings:");
+    note(JSON.stringify(set, null, 1));
+    const cams = await navigator.mediaDevices.enumerateDevices();
+    note("카메라 목록:");
+    cams.filter(d => d.kind === "videoinput")
+        .forEach(d => note("  - " + (d.label || "이름 없음")));
+
+    $("report").value = log.join("\n");
+    $("result").classList.remove("hide");
+    $("result").scrollIntoView({ behavior: "smooth" });
+
+  } catch (e) {
+    $("verdict").className = "banner bad";
+    $("verdict").textContent =
+      (e.name === "NotAllowedError")
+        ? "카메라 사용을 허용해 주셔야 확인할 수 있습니다.\n다시 누르고 「허용」 을 골라주세요."
+        : (e.name === "NotFoundError")
+        ? "카메라를 찾지 못했습니다.\n선이 잘 꽂혔는지 확인해 주세요."
+        : "확인하지 못했습니다.\n" + (e.message || e.name);
+    $("table").innerHTML = "";
+    $("report").value = "오류: " + (e.name || "") + " " + (e.message || "") +
+                        "\n브라우저: " + navigator.userAgent;
+    $("result").classList.remove("hide");
+  } finally {
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    $("go").disabled = false;
+  }
+}
+
+async function fillCameras() {
+  try {
+    const list = (await navigator.mediaDevices.enumerateDevices())
+      .filter(d => d.kind === "videoinput");
+    if (list.length < 2) return;
+    const sel = $("cams");
+    const cur = sel.value;
+    sel.innerHTML = list
+      .map((d, i) => `<option value="${d.deviceId}">${d.label || ("카메라 " + (i + 1))}</option>`)
+      .join("");
+    if (cur) sel.value = cur;
+    $("pick").classList.remove("hide");
+  } catch (e) { /* 목록을 못 얻어도 확인 자체는 된다 */ }
+}
+
+$("go").addEventListener("click", run);
+$("again").addEventListener("click", () => { $("result").classList.add("hide"); run(); });
+$("copy").addEventListener("click", async () => {
+  const ta = $("report");
+  try {
+    await navigator.clipboard.writeText(ta.value);
+    $("copy").textContent = "복사했습니다";
+  } catch (e) {
+    ta.select();                       // 클립보드가 막힌 경우 직접 고르게 둔다
+    $("copy").textContent = "아래 글을 길게 눌러 복사해 주세요";
+  }
+  setTimeout(() => { $("copy").textContent = "결과 복사하기"; }, 2500);
+});
+
+// 권한을 받기 전에는 카메라 이름이 안 보이지만, 이미 준 적이 있으면 보인다.
+fillCameras();
+</script>
+</body>
+</html>

@@ -3,394 +3,581 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>카메라 확인</title>
+<title>얼굴 촬영 시험</title>
 <style>
-  :root {
+  :root{
     --ink:#12212e; --muted:#5a6b7b; --line:#cfd8e3; --bg:#edf1f5;
     --surface:#fff; --brand:#0e6e8c;
     --ok-bg:#e6f4ec; --ok-ink:#0a6b45;
     --bad-bg:#fbebe9; --bad-ink:#a4231b;
     --info-bg:#e8f1f6;
   }
-  * { box-sizing:border-box; }
-  body {
-    margin:0; background:var(--bg); color:var(--ink);
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
     font-family:"Malgun Gothic","맑은 고딕","Noto Sans KR",system-ui,sans-serif;
-    line-height:1.65; font-size:17px;
-  }
-  .wrap { max-width:680px; margin:0 auto; padding:24px 16px 64px; }
-  .card {
-    background:var(--surface); border:1px solid var(--line);
-    border-radius:16px; padding:28px 24px; margin:0 0 20px;
-  }
-  h1 { font-size:28px; margin:0 0 10px; }
-  h2 { font-size:19px; margin:28px 0 10px; }
-  p { margin:0 0 14px; }
-  .muted { color:var(--muted); font-size:15px; }
-  button {
-    width:100%; border:0; border-radius:10px; padding:20px;
-    font-size:20px; font-weight:700; font-family:inherit;
-    background:var(--brand); color:#fff; cursor:pointer;
-  }
-  button:disabled { opacity:.45; cursor:default; }
-  button.ghost {
-    background:var(--surface); color:var(--brand);
-    border:2px solid var(--brand); font-size:17px; padding:14px;
-  }
-  .banner {
-    border-radius:12px; padding:20px; font-weight:700; font-size:19px;
-    margin:0 0 18px; white-space:pre-line;
-  }
-  .banner.ok   { background:var(--ok-bg);   color:var(--ok-ink); }
-  .banner.bad  { background:var(--bad-bg);  color:var(--bad-ink); }
-  .banner.info { background:var(--info-bg); color:var(--brand); }
-  table { width:100%; border-collapse:collapse; font-size:16px; }
-  th, td { text-align:left; padding:11px 4px; border-bottom:1px solid var(--line); vertical-align:top; }
-  th { color:var(--muted); font-weight:600; width:44%; }
-  td b.y { color:var(--ok-ink); }
-  td b.n { color:var(--bad-ink); }
-  select { width:100%; padding:12px; font-size:16px; font-family:inherit;
-           border:2px solid var(--line); border-radius:10px; background:#f7f9fb; }
-  textarea {
-    width:100%; height:220px; font-family:ui-monospace,Consolas,monospace;
-    font-size:12px; border:2px solid var(--line); border-radius:10px;
-    padding:12px; background:#f7f9fb; color:var(--ink);
-  }
-  .steps { margin:0; padding-left:20px; color:var(--muted); font-size:15px; }
-  .steps li { margin:4px 0; }
-  video, canvas { display:none; }
-  .hide { display:none; }
+    line-height:1.6;font-size:17px}
+  .wrap{max-width:640px;margin:0 auto;padding:20px 16px 56px}
+  .card{background:var(--surface);border:1px solid var(--line);
+    border-radius:16px;padding:24px 20px;margin:0 0 16px}
+  h1{font-size:26px;margin:0 0 12px}
+  h2{font-size:18px;margin:24px 0 8px}
+  p{margin:0 0 12px}
+  .muted{color:var(--muted);font-size:15px}
+  button{width:100%;border:0;border-radius:10px;padding:18px;
+    font-size:19px;font-weight:700;font-family:inherit;
+    background:var(--brand);color:#fff;cursor:pointer}
+  button.ghost{background:var(--surface);color:var(--brand);
+    border:2px solid var(--brand);font-size:16px;padding:13px;margin-top:10px}
+  .stage{position:relative;width:100%;aspect-ratio:4/3;background:#0d1418;
+    border-radius:12px;overflow:hidden}
+  .stage video{width:100%;height:100%;object-fit:contain;transform:scaleX(-1)}
+  .stage canvas{position:absolute;inset:0;width:100%;height:100%}
+  .big{font-size:64px;font-weight:800;line-height:1.1;color:var(--brand)}
+  .unit{font-size:20px;font-weight:700;color:var(--muted);margin-left:6px}
+  .bar{height:10px;background:var(--line);border-radius:5px;overflow:hidden;margin:14px 0}
+  .bar > i{display:block;height:100%;width:0;background:var(--brand);transition:width .3s}
+  .banner{border-radius:12px;padding:16px;font-weight:700;margin:0 0 14px;white-space:pre-line}
+  .banner.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .banner.bad{background:var(--bad-bg);color:var(--bad-ink)}
+  .banner.info{background:var(--info-bg);color:var(--brand)}
+  table{width:100%;border-collapse:collapse;font-size:15px}
+  th,td{text-align:left;padding:9px 4px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600;width:50%}
+  .wave{width:100%;height:110px;background:#f7f9fb;border:1px solid var(--line);
+    border-radius:10px;display:block}
+  .hide{display:none}
+  a{color:var(--brand)}
 </style>
 </head>
 <body>
 <div class="wrap">
 
-  <div class="card">
-    <h1>카메라 확인</h1>
-    <p>이 기기의 카메라로 <b>얼굴 영상 분석이 가능한지</b> 봅니다.<br>
-       버튼을 누르고 <b>20초쯤</b> 그대로 두시면 됩니다.</p>
+  <!-- 1. 시작 -->
+  <div id="s-intro" class="card">
+    <h1>얼굴 촬영 시험</h1>
+    <p>얼굴을 <b>40초</b> 촬영해서 <b>심박수</b>를 뽑아 봅니다.<br>
+       만드는 중인 화면이라 값이 흔들릴 수 있습니다.</p>
     <p class="muted">
       촬영본은 이 기기 밖으로 <b>나가지 않습니다.</b>
-      인터넷으로 보내지 않고 저장하지도 않습니다. 화면에서 확인하고 끝납니다.
+      인터넷으로 보내지 않고 저장하지도 않습니다. 화면에서 보고 끝납니다.
     </p>
-
-    <div id="pick" class="hide">
-      <h2>카메라 고르기</h2>
-      <select id="cams"></select>
-      <p class="muted" style="margin-top:10px">
-        여러 개면 하나씩 해보셔도 됩니다. 얼굴을 찍을 카메라를 고르세요.
-      </p>
-    </div>
-
-    <p style="margin-top:22px">
-      <button id="go">확인 시작</button>
+    <h2>잘 나오게 하려면</h2>
+    <p class="muted">
+      · 밝은 곳에서, 창문을 등지지 말고 마주보게<br>
+      · 얼굴을 화면의 타원 안에 채우고<br>
+      · 40초 동안 <b>말하지 말고 움직이지 마세요</b><br>
+      · 앞머리가 이마를 덮으면 잠깐 넘겨주세요
     </p>
-    <div id="progress" class="hide">
-      <ol class="steps" id="steps"></ol>
-    </div>
+    <p style="margin-top:18px"><button id="go">시작하기</button></p>
+    <p class="muted" style="text-align:center;margin:14px 0 0">
+      <a href="check.html">카메라 성능만 확인하기</a>
+    </p>
   </div>
 
-  <div id="result" class="card hide">
-    <div id="verdict" class="banner"></div>
-    <table id="table"></table>
+  <!-- 2. 측정 -->
+  <div id="s-run" class="card hide">
+    <div class="stage">
+      <video id="v" playsinline muted autoplay></video>
+      <canvas id="ov"></canvas>
+    </div>
+    <div class="bar"><i id="prog"></i></div>
+    <p id="status" style="text-align:center;font-weight:700;margin:8px 0 12px">준비 중</p>
+    <canvas id="wave" class="wave"></canvas>
+    <button id="stop" class="ghost">그만두기</button>
+  </div>
 
-    <h2>결과 보내기</h2>
-    <p class="muted">아래 내용을 통째로 복사해서 개발자에게 보내주세요.</p>
-    <p><button id="copy" class="ghost">결과 복사하기</button></p>
-    <textarea id="report" readonly></textarea>
-    <p style="margin-top:18px"><button id="again" class="ghost">다시 확인</button></p>
+  <!-- 3. 결과 -->
+  <div id="s-out" class="card hide">
+    <div id="verdict" class="banner"></div>
+    <p style="text-align:center;margin:6px 0 2px">
+      <span id="bpm" class="big">—</span><span class="unit">회/분</span>
+    </p>
+    <p class="muted" style="text-align:center">심박수</p>
+    <canvas id="wave2" class="wave" style="height:130px;margin-top:14px"></canvas>
+    <p class="muted" style="text-align:center;margin-top:6px">뽑아낸 맥박 파형</p>
+    <h2>이번 촬영</h2>
+    <table id="tbl"></table>
+    <button id="again" class="ghost">다시 하기</button>
+    <button id="copy" class="ghost">결과 복사하기</button>
   </div>
 
   <p class="muted" style="text-align:center">
-    카메라 성능만 확인하는 페이지입니다. 아무것도 저장하지 않습니다.
+    만드는 중인 시험용 화면입니다. 아무것도 저장하지 않습니다.
   </p>
 </div>
 
-<video id="v" playsinline muted autoplay></video>
-<canvas id="c" width="160" height="120"></canvas>
+<canvas id="samp" width="320" height="240" class="hide"></canvas>
 
 <script>
 "use strict";
+const $ = id => document.getElementById(id);
+const V=$("v"), OV=$("ov"), SAMP=$("samp"), SCX=SAMP.getContext("2d",{willReadFrequently:true});
 
-const $ = (id) => document.getElementById(id);
-const V = $("v"), C = $("c"), CX = C.getContext("2d", { willReadFrequently: true });
+// ── 파이썬 프로토타입과 같은 값을 쓴다 (prototype/config.py) ──────────
+const FS = 30;                    // 균일 격자로 다시 샘플링할 기준 속도
+const SECONDS = 40;               // 분석창 20초 · 홉 10초 → 추정 3개
+const POS_WINDOW_SECONDS = 1.6;
+const BAND_LO = 0.7, BAND_HI = 4.0;
+const WELCH_WINDOW_SECONDS = 8, WELCH_NFFT = 2048;
+const HR_SEARCH = [0.75, 2.5];    // 45~150 BPM
+const HR_RANGE = [45, 150];
+const SUBHARMONIC_RATIO = 0.6;
+const HR_WIN = 20, HR_HOP = 10, HR_MEDIAN = 3;
+const ROI_W = { forehead:0.5, left:0.25, right:0.25 };
 
-// 밝기 시험에서 이만큼은 변해야 "정말로 고정이 먹었다" 고 본다.
-// 안드로이드 앱의 시험과 같은 기준을 쓴다.
-const SPREAD_PASS = 5.0;
+// 얼굴을 타원에 채웠을 때의 자리. 얼굴 추적 대신 안내 타원으로 맞춘다.
+const OVAL = { cx:0.5, cy:0.46, rx:0.24, ry:0.34 };
+const ROIS = {
+  forehead:{ x:0.50, y:0.26, w:0.17, h:0.075 },
+  left:    { x:0.375,y:0.52, w:0.10, h:0.10  },
+  right:   { x:0.625,y:0.52, w:0.10, h:0.10  },
+};
 
-let stream = null, log = [];
+// ── 신호처리 ─────────────────────────────────────────────────────
+function fft(re, im, inverse){
+  const n = re.length;
+  for(let i=1, j=0; i<n; i++){
+    let bit = n >> 1;
+    for(; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if(i < j){ let t=re[i]; re[i]=re[j]; re[j]=t; t=im[i]; im[i]=im[j]; im[j]=t; }
+  }
+  for(let len=2; len<=n; len<<=1){
+    const ang = (inverse?2:-2)*Math.PI/len;
+    const wr = Math.cos(ang), wi = Math.sin(ang);
+    for(let i=0; i<n; i+=len){
+      let cr=1, ci=0;
+      for(let k=0; k<len/2; k++){
+        const ur=re[i+k], ui=im[i+k];
+        const vr=re[i+k+len/2]*cr - im[i+k+len/2]*ci;
+        const vi=re[i+k+len/2]*ci + im[i+k+len/2]*cr;
+        re[i+k]=ur+vr; im[i+k]=ui+vi;
+        re[i+k+len/2]=ur-vr; im[i+k+len/2]=ui-vi;
+        const ncr=cr*wr-ci*wi; ci=cr*wi+ci*wr; cr=ncr;
+      }
+    }
+  }
+  if(inverse) for(let i=0;i<n;i++){ re[i]/=n; im[i]/=n; }
+}
+const nextPow2 = n => { let p=1; while(p<n) p<<=1; return p; };
 
-function note(s) { log.push(s); }
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-function step(text, state) {
-  const ol = $("steps");
-  let li = ol.querySelector(`[data-k="${text}"]`);
-  if (!li) { li = document.createElement("li"); li.dataset.k = text; ol.appendChild(li); }
-  li.textContent = (state === "done" ? "✓ " : "… ") + text;
-  li.style.color = state === "done" ? "var(--ok-ink)" : "var(--muted)";
+/** 주파수 영역에서 자른다. 앞뒤 위상이 함께 유지되어 지연이 없다(filtfilt 와 같은 성질). */
+function bandpass(x, fs, lo, hi){
+  lo = lo===undefined ? BAND_LO : lo;
+  hi = hi===undefined ? BAND_HI : hi;
+  const n = x.length, N = nextPow2(n*2);
+  const re = new Float64Array(N), im = new Float64Array(N);
+  let mean = 0; for(let i=0;i<n;i++) mean += x[i]; mean/=n;
+  for(let i=0;i<n;i++) re[i] = x[i]-mean;         // 나머지는 0 으로 채워 순환 누수를 줄인다
+  fft(re, im, false);
+  for(let k=0;k<N;k++){
+    const f = (k<=N/2 ? k : k-N) * fs / N;
+    const a = Math.abs(f);
+    if(a < lo || a > hi){ re[k]=0; im[k]=0; }
+  }
+  fft(re, im, true);
+  return Array.from(re.slice(0,n));
 }
 
-/** 화면 한 장의 평균 밝기. 사람 눈이 느끼는 밝기에 맞춰 가중치를 준다. */
-function brightness() {
-  CX.drawImage(V, 0, 0, C.width, C.height);
-  const d = CX.getImageData(0, 0, C.width, C.height).data;
-  let sum = 0;
-  for (let i = 0; i < d.length; i += 4) {
-    sum += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+const stdev = a => {
+  let m=0; for(let i=0;i<a.length;i++) m+=a[i]; m/=a.length;
+  let s=0; for(let i=0;i<a.length;i++) s+=(a[i]-m)*(a[i]-m);
+  return Math.sqrt(s/a.length);
+};
+
+/** Plane-Orthogonal-to-Skin. 슬라이딩 윈도우 + overlap-add. */
+function pos(rgb, fs){
+  const n = rgb.length, L = Math.max(8, Math.round(POS_WINDOW_SECONDS*fs));
+  const out = new Float64Array(n);
+  if(n < L) return Array.from(out);
+  const s1 = new Float64Array(L), s2 = new Float64Array(L), h = new Float64Array(L);
+  for(let i=0; i<=n-L; i++){
+    let mr=0,mg=0,mb=0;
+    for(let k=0;k<L;k++){ mr+=rgb[i+k][0]; mg+=rgb[i+k][1]; mb+=rgb[i+k][2]; }
+    mr/=L; mg/=L; mb/=L;
+    if(mr===0) mr=1e-9;
+    if(mg===0) mg=1e-9;
+    if(mb===0) mb=1e-9;
+    for(let k=0;k<L;k++){
+      const r=rgb[i+k][0]/mr, g=rgb[i+k][1]/mg, b=rgb[i+k][2]/mb;
+      s1[k] = g-b;
+      s2[k] = -2*r + g + b;
+    }
+    const sd2 = stdev(s2);
+    const alpha = sd2 > 1e-12 ? stdev(s1)/sd2 : 0;
+    let hm = 0;
+    for(let k=0;k<L;k++){ h[k] = s1[k] + alpha*s2[k]; hm += h[k]; }
+    hm /= L;
+    for(let k=0;k<L;k++) out[i+k] += h[k]-hm;
   }
-  return sum / (d.length / 4);
+  return Array.from(out);
+}
+
+/** Welch PSD. 8초 조각을 절반씩 겹쳐 평균하고 2048 로 제로패딩한다. */
+function welch(x, fs){
+  const nper = Math.min(x.length, Math.round(WELCH_WINDOW_SECONDS*fs));
+  if(nper < 8) return null;
+  const step = Math.max(1, Math.floor(nper/2));
+  const N = WELCH_NFFT;
+  const win = new Float64Array(nper);
+  let wsum = 0;
+  for(let i=0;i<nper;i++){ win[i] = 0.5-0.5*Math.cos(2*Math.PI*i/(nper-1)); wsum += win[i]*win[i]; }
+  const acc = new Float64Array(N/2+1);
+  let segs = 0;
+  for(let s=0; s+nper<=x.length; s+=step){
+    const re = new Float64Array(N), im = new Float64Array(N);
+    let m=0; for(let i=0;i<nper;i++) m += x[s+i]; m/=nper;
+    for(let i=0;i<nper;i++) re[i] = (x[s+i]-m)*win[i];
+    fft(re, im, false);
+    for(let k=0;k<=N/2;k++) acc[k] += (re[k]*re[k]+im[k]*im[k])/(fs*wsum);
+    segs++;
+  }
+  if(!segs) return null;
+  const power = Array.from(acc, v => v/segs);
+  const freqs = Array.from({length:N/2+1}, (_,k)=> k*fs/N);
+  return {freqs, power};
+}
+
+function parabolicOffset(y, k){
+  if(k<=0 || k>=y.length-1) return 0;
+  const d = y[k-1] - 2*y[k] + y[k+1];
+  if(Math.abs(d) < 1e-30) return 0;
+  return Math.max(-0.5, Math.min(0.5, 0.5*(y[k-1]-y[k+1])/d));
+}
+
+function heartRate(x, fs){
+  const p = welch(x, fs);
+  if(!p) return null;
+  const freqs = p.freqs, power = p.power;
+  let k=-1, best=-Infinity;
+  for(let i=0;i<freqs.length;i++){
+    if(freqs[i] < HR_SEARCH[0] || freqs[i] > HR_SEARCH[1]) continue;
+    if(power[i] > best){ best = power[i]; k = i; }
+  }
+  if(k < 0) return null;
+  const df = freqs[1]-freqs[0];
+  let f = freqs[k] + parabolicOffset(power, k)*df;
+
+  // 고조파 방어. 2f 를 집으면 심박이 두 배가 되는데 어떤 게이트도 잡지 못한다.
+  // f/2 가 국소 최대일 때만 바꾼다 — 비탈에 걸린 값에 속으면 거꾸로 반토막 난다.
+  let note = "";
+  const half = f/2;
+  if(half >= HR_SEARCH[0]){
+    let j = Math.round(half/df);
+    j = Math.max(1, Math.min(power.length-2, j));
+    const localPeak = power[j] >= power[j-1] && power[j] >= power[j+1];
+    if(localPeak && power[j] >= SUBHARMONIC_RATIO*power[k]){
+      note = "f/2 채택 (원 피크 " + (freqs[k]*60).toFixed(1) + ")";
+      f = freqs[j];
+    }
+  }
+  let near=0, band=0;
+  for(let i=0;i<freqs.length;i++){
+    if(freqs[i]>=BAND_LO && freqs[i]<=BAND_HI) band += power[i];
+    if(Math.abs(freqs[i]-f) <= 0.2) near += power[i];
+  }
+  return { bpm: f*60, kurtosis: near/(band+1e-30), note: note };
+}
+
+/** 분석창을 밀어가며 여러 추정치를 만들고 중앙값을 취한다. */
+function heartRateWindowed(x, fs){
+  const win = Math.round(HR_WIN*fs), hop = Math.round(HR_HOP*fs);
+  const est=[], kur=[];
+  if(x.length >= win){
+    for(let s=0; s+win<=x.length; s+=hop){
+      const r = heartRate(x.slice(s, s+win), fs);
+      if(r){ est.push(r.bpm); kur.push(r.kurtosis); }
+    }
+  }
+  if(!est.length){
+    const r = heartRate(x, fs);
+    if(!r) return null;
+    est.push(r.bpm); kur.push(r.kurtosis);
+  }
+  const keep = est.slice(-HR_MEDIAN).slice().sort((a,b)=>a-b);
+  const med = keep[Math.floor(keep.length/2)];
+  const mean = est.reduce((a,b)=>a+b,0)/est.length;
+  const spread = Math.sqrt(est.reduce((a,b)=>a+(b-mean)*(b-mean),0)/est.length);
+  const ks = kur.slice().sort((a,b)=>a-b);
+  return { bpm: Math.max(HR_RANGE[0], Math.min(HR_RANGE[1], med)),
+           raw: med, estimates: est, spread: spread,
+           kurtosis: ks[Math.floor(ks.length/2)] };
 }
 
 /**
- * 실제로 들어오는 프레임 간격을 잰다.
+ * 들어온 시각 그대로 균일 격자에 다시 얹는다.
  *
- * 설정값이 30 이라고 적혀 있어도 실제로는 27 로 들어오는 일이 있다. 그러면
- * 심박수가 그 비율만큼 어긋난다. 적힌 값 말고 들어온 시각을 직접 본다.
+ * 적힌 속도가 30 이어도 실제로는 27 로 들어오는 일이 있다. 그대로 두면
+ * 심박수가 그 비율만큼 어긋난다. 프로토타입에서 실제로 겪은 문제다.
  */
-async function measureFps(ms) {
-  const t = [];
-  const useVFC = typeof V.requestVideoFrameCallback === "function";
-  if (useVFC) {
-    await new Promise(done => {
-      const started = performance.now();
-      const tick = (now) => {
-        t.push(now);
-        if (now - started < ms) V.requestVideoFrameCallback(tick); else done();
-      };
-      V.requestVideoFrameCallback(tick);
-    });
-  } else {
-    await new Promise(done => {
-      const started = performance.now();
-      const tick = () => {
-        t.push(performance.now());
-        if (performance.now() - started < ms) requestAnimationFrame(tick); else done();
-      };
-      requestAnimationFrame(tick);
-    });
+function resample(times, values, fs){
+  const t0 = times[0], t1 = times[times.length-1];
+  const n = Math.max(0, Math.floor((t1-t0)*fs));
+  const out = new Array(n);
+  let j = 0;
+  for(let i=0;i<n;i++){
+    const t = t0 + i/fs;
+    while(j < times.length-2 && times[j+1] < t) j++;
+    const a=times[j], b=times[j+1], w = b>a ? (t-a)/(b-a) : 0;
+    out[i] = values[j]*(1-w) + values[j+1]*w;
   }
-  if (t.length < 3) return { fps: 0, jitter: 0, method: useVFC ? "정확" : "대략", n: t.length };
-  const gaps = [];
-  for (let i = 1; i < t.length; i++) gaps.push(t[i] - t[i - 1]);
-  const mean = gaps.reduce((a, b) => a + b, 0) / gaps.length;
-  const sd = Math.sqrt(gaps.reduce((a, b) => a + (b - mean) ** 2, 0) / gaps.length);
-  return { fps: 1000 / mean, jitter: sd, method: useVFC ? "정확" : "대략", n: t.length };
-}
-
-/**
- * 밝기를 한 값에 고정할 수 있는지 본다.
- *
- * 지원한다고 적혀 있는 것만으로는 믿을 수 없다. 드라이버가 값을 받고도
- * 무시하는 경우가 있다. 노출 시간을 바꿔가며 **화면이 실제로 밝아졌다
- * 어두워지는지**를 눈으로 확인하듯 재서 판정한다.
- */
-async function exposureTest(track, caps) {
-  const out = { supported: false, applied: false, steps: [], spread: 0 };
-  const modes = caps.exposureMode || [];
-  out.supported = modes.includes("manual");
-  if (!out.supported) return out;
-
-  try {
-    await track.applyConstraints({ advanced: [{ exposureMode: "manual" }] });
-  } catch (e) {
-    out.error = "노출 고정 전환 실패: " + e.name;
-    return out;
-  }
-  await sleep(500);
-  out.applied = (track.getSettings().exposureMode === "manual");
-
-  const r = caps.exposureTime;
-  let values;
-  if (r && typeof r.min === "number" && typeof r.max === "number") {
-    const lo = r.min, hi = r.max;
-    values = [0.15, 0.35, 0.6, 0.9].map(f => {
-      let v = lo + (hi - lo) * f;
-      if (r.step) v = Math.round(v / r.step) * r.step;
-      return Math.min(hi, Math.max(lo, v));
-    });
-  } else {
-    out.error = "노출 시간 범위를 알려주지 않는다";
-    return out;
-  }
-
-  for (const v of values) {
-    let ok = true;
-    try {
-      await track.applyConstraints({ advanced: [{ exposureTime: v }] });
-    } catch (e) { ok = false; }
-    await sleep(700);
-    out.steps.push({
-      asked: v,
-      got: track.getSettings().exposureTime,
-      brightness: brightness(),
-      accepted: ok
-    });
-  }
-  const bs = out.steps.map(s => s.brightness);
-  out.spread = Math.max(...bs) - Math.min(...bs);
   return out;
 }
 
-function row(label, value) {
-  return `<tr><th>${label}</th><td>${value}</td></tr>`;
+// ── 촬영 ─────────────────────────────────────────────────────────
+let stream=null, running=false, frames=[], startAt=0, fpsInfo={n:0,fps:0};
+
+function contentRect(){
+  // object-fit: contain 으로 그려진 실제 영상 영역
+  const box = OV.getBoundingClientRect();
+  const vw = V.videoWidth || 4, vh = V.videoHeight || 3;
+  const s = Math.min(box.width/vw, box.height/vh);
+  const w = vw*s, h = vh*s;
+  return { x:(box.width-w)/2, y:(box.height-h)/2, w:w, h:h };
 }
-const yes = (b) => b ? '<b class="y">O 됩니다</b>' : '<b class="n">X 안 됩니다</b>';
 
-async function run() {
-  $("go").disabled = true;
-  $("progress").classList.remove("hide");
-  $("result").classList.add("hide");
-  $("steps").innerHTML = "";
-  log = [];
+function drawGuide(){
+  const box = OV.getBoundingClientRect();
+  if(!box.width) return;
+  OV.width = box.width; OV.height = box.height;
+  const cx = OV.getContext("2d");
+  const r = contentRect();
+  cx.clearRect(0,0,OV.width,OV.height);
+  cx.strokeStyle = "rgba(255,255,255,.85)";
+  cx.lineWidth = 3;
+  cx.setLineDash([10,8]);
+  cx.beginPath();
+  cx.ellipse(r.x+r.w*OVAL.cx, r.y+r.h*OVAL.cy, r.w*OVAL.rx, r.h*OVAL.ry, 0, 0, Math.PI*2);
+  cx.stroke();
+  cx.setLineDash([]);
+  cx.strokeStyle = "rgba(120,230,180,.9)";
+  cx.lineWidth = 2;
+  for(const k in ROIS){
+    const o = ROIS[k];
+    cx.strokeRect(r.x+r.w*(o.x-o.w/2), r.y+r.h*(o.y-o.h/2), r.w*o.w, r.h*o.h);
+  }
+}
 
-  try {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      throw new Error("이 브라우저는 카메라를 쓸 수 없습니다. 크롬으로 열어주세요.");
-    }
-    step("카메라 권한 받기");
-    const chosen = $("cams").value;
-    const want = { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } };
-    if (chosen) want.deviceId = { exact: chosen }; else want.facingMode = "user";
-    stream = await navigator.mediaDevices.getUserMedia({ video: want, audio: false });
-    V.srcObject = stream;
-    await V.play().catch(() => {});
-    await sleep(900);
-    step("카메라 권한 받기", "done");
+function sampleFrame(){
+  SCX.drawImage(V, 0, 0, SAMP.width, SAMP.height);
+  const out = {};
+  for(const k in ROIS){
+    const o = ROIS[k];
+    const x = Math.round((o.x-o.w/2)*SAMP.width),  y = Math.round((o.y-o.h/2)*SAMP.height);
+    const w = Math.max(2, Math.round(o.w*SAMP.width)), h = Math.max(2, Math.round(o.h*SAMP.height));
+    const d = SCX.getImageData(x, y, w, h).data;
+    let r=0,g=0,b=0;
+    for(let i=0;i<d.length;i+=4){ r+=d[i]; g+=d[i+1]; b+=d[i+2]; }
+    const n = d.length/4;
+    out[k] = [r/n, g/n, b/n];
+  }
+  return out;
+}
 
-    // 권한을 받아야 카메라 이름이 보인다. 목록을 여기서 채운다.
-    await fillCameras();
-
-    const track = stream.getVideoTracks()[0];
+/** 자동 노출이 정한 값을 그대로 붙잡아 고정한다. 방 밝기와 무관하게 잘 맞는다. */
+async function lockExposure(track){
+  const info = { supported:false, locked:false };
+  try{
     const caps = track.getCapabilities ? track.getCapabilities() : {};
-    const set = track.getSettings ? track.getSettings() : {};
-
-    step("화면 크기와 속도 재기 (3초)");
-    const base = brightness();
-    const fps = await measureFps(3000);
-    step("화면 크기와 속도 재기 (3초)", "done");
-
-    step("밝기 고정 시험 (10초)");
-    const exp = await exposureTest(track, caps);
-    step("밝기 고정 시험 (10초)", "done");
-
-    const wbManual = (caps.whiteBalanceMode || []).includes("manual");
-    const realFix = exp.supported && exp.applied && exp.spread >= SPREAD_PASS;
-
-    // ── 판정 ──────────────────────────────────────────────
-    let cls, verdict;
-    if (realFix) {
-      cls = "ok";
-      verdict = "통과했습니다.\n이 카메라는 밝기를 고정할 수 있습니다.";
-    } else if (exp.supported) {
-      cls = "bad";
-      verdict = "밝기 고정이 실제로는 먹지 않았습니다.\n" +
-                "된다고 적혀 있지만 화면이 따라 바뀌지 않았습니다.";
-    } else {
-      cls = "bad";
-      verdict = "이 브라우저에서는 밝기를 고정할 수 없습니다.\n" +
-                "괜찮습니다. 그것도 저희에게는 중요한 정보입니다.";
+    if((caps.exposureMode||[]).indexOf("manual") < 0) return info;
+    info.supported = true;
+    await new Promise(r=>setTimeout(r,1500));         // 자동 노출이 자리를 잡게 둔다
+    const cur = track.getSettings();
+    await track.applyConstraints({advanced:[{exposureMode:"manual"}]});
+    await new Promise(r=>setTimeout(r,250));
+    if(typeof cur.exposureTime === "number"){
+      try{ await track.applyConstraints({advanced:[{exposureTime:cur.exposureTime}]}); }catch(e){}
     }
-    $("verdict").className = "banner " + cls;
-    $("verdict").textContent = verdict;
-
-    $("table").innerHTML =
-      row("카메라", (set.label || track.label || "이름 없음")) +
-      row("화면 크기", `${set.width || "?"} x ${set.height || "?"}`) +
-      row("실제 속도", `${fps.fps.toFixed(1)} 장/초  <span class="muted">(설정값 ${set.frameRate || "?"})</span>`) +
-      row("속도 흔들림", `${fps.jitter.toFixed(1)} ms`) +
-      row("밝기 고정 지원", yes(exp.supported)) +
-      row("밝기 고정 실측", exp.supported
-            ? `${yes(exp.spread >= SPREAD_PASS)} <span class="muted">(밝기 차 ${exp.spread.toFixed(1)})</span>`
-            : '<span class="muted">— 지원하지 않아 시험 못 함</span>') +
-      row("화이트밸런스 고정", yes(wbManual));
-
-    // ── 보고서 ────────────────────────────────────────────
-    note("== 브라우저 카메라 확인 ==");
-    note("시각: " + new Date().toISOString());
-    note("주소: " + location.href);
-    note("브라우저: " + navigator.userAgent);
-    note("화면: " + screen.width + "x" + screen.height + " @" + devicePixelRatio);
-    note("");
-    note("[판정] " + verdict.replace(/\n/g, " "));
-    note("");
-    note("카메라: " + (set.label || track.label || "이름 없음"));
-    note("크기: " + set.width + "x" + set.height);
-    note("실측 속도: " + fps.fps.toFixed(2) + " 장/초 (" + fps.method +
-         ", 표본 " + fps.n + ", 흔들림 " + fps.jitter.toFixed(2) + "ms)");
-    note("기준 밝기(자동): " + base.toFixed(2));
-    note("");
-    note("노출 고정 지원: " + exp.supported + " / 적용됨: " + exp.applied);
-    if (exp.error) note("오류: " + exp.error);
-    for (const s of exp.steps) {
-      note("  요청 " + s.asked + " -> 적용 " + s.got +
-           " | 밝기 " + s.brightness.toFixed(2) + (s.accepted ? "" : "  (거부됨)"));
+    if((caps.whiteBalanceMode||[]).indexOf("manual") >= 0){
+      try{
+        await track.applyConstraints({advanced:[{whiteBalanceMode:"manual"}]});
+        if(typeof cur.colorTemperature === "number")
+          await track.applyConstraints({advanced:[{colorTemperature:cur.colorTemperature}]});
+      }catch(e){}
     }
-    note("밝기 차: " + exp.spread.toFixed(2) + " (기준 " + SPREAD_PASS + " 이상)");
-    note("");
-    note("capabilities:");
-    note(JSON.stringify(caps, null, 1));
-    note("settings:");
-    note(JSON.stringify(set, null, 1));
-    const cams = await navigator.mediaDevices.enumerateDevices();
-    note("카메라 목록:");
-    cams.filter(d => d.kind === "videoinput")
-        .forEach(d => note("  - " + (d.label || "이름 없음")));
+    info.locked = track.getSettings().exposureMode === "manual";
+  }catch(e){}
+  return info;
+}
 
-    $("report").value = log.join("\n");
-    $("result").classList.remove("hide");
-    $("result").scrollIntoView({ behavior: "smooth" });
+function drawWave(canvas, data, color){
+  const box = canvas.getBoundingClientRect();
+  if(!box.width) return;
+  canvas.width = box.width; canvas.height = box.height;
+  const cx = canvas.getContext("2d");
+  cx.clearRect(0,0,canvas.width,canvas.height);
+  if(!data || data.length < 4) return;
+  let lo=Infinity, hi=-Infinity;
+  for(let i=0;i<data.length;i++){ if(data[i]<lo)lo=data[i]; if(data[i]>hi)hi=data[i]; }
+  const span = (hi-lo) || 1;
+  cx.strokeStyle = color; cx.lineWidth = 2; cx.beginPath();
+  for(let i=0;i<data.length;i++){
+    const x = i/(data.length-1)*canvas.width;
+    const y = canvas.height - ((data[i]-lo)/span)*(canvas.height-14) - 7;
+    i ? cx.lineTo(x,y) : cx.moveTo(x,y);
+  }
+  cx.stroke();
+}
 
-  } catch (e) {
+/** 촬영 중 보여줄 파형. 이마 초록 채널에서 천천한 변화를 뺀 것. */
+function liveWave(){
+  const g = frames.slice(-360).map(f => f.roi.forehead[1]);
+  if(g.length < 60) return [];
+  const k = 45;                                   // 1.5초쯤의 이동평균
+  const out = [];
+  for(let i=0;i<g.length;i++){
+    const a = Math.max(0,i-k), b = Math.min(g.length,i+k+1);
+    let m=0; for(let j=a;j<b;j++) m+=g[j];
+    out.push(g[i] - m/(b-a));
+  }
+  return out.slice(k, Math.max(k+4, out.length-k));
+}
+
+async function start(){
+  $("s-intro").classList.add("hide");
+  $("s-out").classList.add("hide");
+  $("s-run").classList.remove("hide");
+  $("status").textContent = "카메라를 켜는 중";
+  $("prog").style.width = "0%";
+  frames = []; running = true;
+
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:"user", width:{ideal:1280}, height:{ideal:720}, frameRate:{ideal:30} },
+      audio:false });
+  }catch(e){
+    stop(e.name === "NotAllowedError"
+      ? "카메라 사용을 허용해 주셔야 합니다.\n다시 누르고 「허용」 을 골라주세요."
+      : "카메라를 열지 못했습니다. (" + e.name + ")");
+    return;
+  }
+  V.srcObject = stream;
+  await V.play().catch(function(){});
+  const track = stream.getVideoTracks()[0];
+
+  drawGuide();
+  $("status").textContent = "밝기를 맞추는 중";
+  const exp = await lockExposure(track);
+  if(!running) return;
+
+  for(let c=3;c>0 && running;c--){
+    $("status").textContent = "곧 시작합니다 · " + c;
+    drawGuide();
+    await new Promise(r=>setTimeout(r,1000));
+  }
+  if(!running) return;
+
+  startAt = performance.now();
+  const useVFC = typeof V.requestVideoFrameCallback === "function";
+  const grab = function(now){
+    if(!running) return;
+    const t = (now - startAt)/1000;
+    if(t >= SECONDS){ finish(exp); return; }
+    frames.push({ t:t, roi: sampleFrame() });
+    $("prog").style.width = Math.min(100, t/SECONDS*100) + "%";
+    $("status").textContent = "촬영 중 · " + Math.ceil(SECONDS - t) + "초 남음";
+    if(frames.length % 6 === 0){ drawGuide(); drawWave($("wave"), liveWave(), "#0e6e8c"); }
+    useVFC ? V.requestVideoFrameCallback(grab)
+           : requestAnimationFrame(function(){ grab(performance.now()); });
+  };
+  useVFC ? V.requestVideoFrameCallback(grab)
+         : requestAnimationFrame(function(){ grab(performance.now()); });
+}
+
+function finish(exp){
+  running = false;
+  $("status").textContent = "계산 중";
+  const times = frames.map(f=>f.t);
+  const secs = times[times.length-1] - times[0];
+  fpsInfo = { n: frames.length, fps: frames.length/secs };
+
+  // ROI 별로 균일 격자에 얹고 POS → 대역통과 → 가중 합
+  const perRoi = {};
+  for(const k in ROIS){
+    const rs = [0,1,2].map(c => resample(times, frames.map(f=>f.roi[k][c]), FS));
+    const n = Math.min(rs[0].length, rs[1].length, rs[2].length);
+    const rgb = new Array(n);
+    for(let i=0;i<n;i++) rgb[i] = [rs[0][i], rs[1][i], rs[2][i]];
+    perRoi[k] = bandpass(pos(rgb, FS), FS);
+  }
+  let len = Infinity;
+  for(const k in perRoi) len = Math.min(len, perRoi[k].length);
+  const comb = new Array(len).fill(0);
+  for(const k in perRoi){
+    const a = perRoi[k].slice(0,len);
+    const sd = stdev(a) || 1;
+    for(let i=0;i<len;i++) comb[i] += ROI_W[k]*a[i]/sd;
+  }
+  const sig = len > FS*10 ? bandpass(comb, FS) : null;
+  const hr = sig ? heartRateWindowed(sig, FS) : null;
+
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  $("s-run").classList.add("hide");
+  $("s-out").classList.remove("hide");
+
+  if(!hr){
     $("verdict").className = "banner bad";
-    $("verdict").textContent =
-      (e.name === "NotAllowedError")
-        ? "카메라 사용을 허용해 주셔야 확인할 수 있습니다.\n다시 누르고 「허용」 을 골라주세요."
-        : (e.name === "NotFoundError")
-        ? "카메라를 찾지 못했습니다.\n선이 잘 꽂혔는지 확인해 주세요."
-        : "확인하지 못했습니다.\n" + (e.message || e.name);
-    $("table").innerHTML = "";
-    $("report").value = "오류: " + (e.name || "") + " " + (e.message || "") +
-                        "\n브라우저: " + navigator.userAgent;
-    $("result").classList.remove("hide");
-  } finally {
-    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
-    $("go").disabled = false;
+    $("verdict").textContent = "신호를 뽑지 못했습니다.\n더 밝은 곳에서 다시 해보세요.";
+    $("bpm").textContent = "—";
+    $("tbl").innerHTML = "";
+    window.__report = "실패: 신호 없음 · 장수 " + fpsInfo.n;
+    return;
+  }
+
+  // 봉우리가 뚜렷한 정도와 추정치가 모인 정도로 신뢰도를 본다
+  const good = hr.kurtosis >= 0.30 && hr.spread <= 6;
+  $("verdict").className = "banner " + (good ? "ok" : "info");
+  $("verdict").textContent = good
+    ? "잘 잡혔습니다."
+    : "신호가 약합니다. 값이 흔들릴 수 있습니다.\n더 밝은 곳에서 움직이지 말고 다시 해보세요.";
+  $("bpm").textContent = hr.bpm.toFixed(0);
+
+  drawWave($("wave2"), sig.slice(0, Math.min(sig.length, FS*8)), "#0e6e8c");
+
+  const row = (a,b)=>"<tr><th>"+a+"</th><td>"+b+"</td></tr>";
+  $("tbl").innerHTML =
+    row("찍힌 장수", fpsInfo.n + " 장 · 초당 " + fpsInfo.fps.toFixed(1)) +
+    row("창별 추정치", hr.estimates.map(v=>v.toFixed(1)).join(" / ")) +
+    row("추정치 흩어짐", hr.spread.toFixed(2) + " (작을수록 좋음)") +
+    row("봉우리 뚜렷함", hr.kurtosis.toFixed(3) + " (0.30 이상이면 양호)") +
+    row("밝기 고정", exp.locked ? "O 고정됨" : (exp.supported ? "X 안 먹음" : "X 지원 안 함"));
+
+  window.__report = [
+    "== 얼굴 촬영 시험 ==",
+    "시각: " + new Date().toISOString(),
+    "브라우저: " + navigator.userAgent,
+    "심박수: " + hr.bpm.toFixed(1) + " (클램프 전 " + hr.raw.toFixed(1) + ")",
+    "창별 추정치: " + hr.estimates.map(v=>v.toFixed(2)).join(", "),
+    "흩어짐: " + hr.spread.toFixed(3) + " / 봉우리: " + hr.kurtosis.toFixed(4),
+    "장수: " + fpsInfo.n + " · 초당 " + fpsInfo.fps.toFixed(2) + " · 길이 " + secs.toFixed(1) + "초",
+    "밝기 고정: 지원 " + exp.supported + " / 적용 " + exp.locked
+  ].join("\n");
+}
+
+function stop(msg){
+  running = false;
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  $("s-run").classList.add("hide");
+  if(msg){
+    $("s-out").classList.remove("hide");
+    $("verdict").className = "banner bad";
+    $("verdict").textContent = msg;
+    $("bpm").textContent = "—";
+    $("tbl").innerHTML = "";
+  } else {
+    $("s-intro").classList.remove("hide");
   }
 }
 
-async function fillCameras() {
-  try {
-    const list = (await navigator.mediaDevices.enumerateDevices())
-      .filter(d => d.kind === "videoinput");
-    if (list.length < 2) return;
-    const sel = $("cams");
-    const cur = sel.value;
-    sel.innerHTML = list
-      .map((d, i) => `<option value="${d.deviceId}">${d.label || ("카메라 " + (i + 1))}</option>`)
-      .join("");
-    if (cur) sel.value = cur;
-    $("pick").classList.remove("hide");
-  } catch (e) { /* 목록을 못 얻어도 확인 자체는 된다 */ }
-}
-
-$("go").addEventListener("click", run);
-$("again").addEventListener("click", () => { $("result").classList.add("hide"); run(); });
-$("copy").addEventListener("click", async () => {
-  const ta = $("report");
-  try {
-    await navigator.clipboard.writeText(ta.value);
-    $("copy").textContent = "복사했습니다";
-  } catch (e) {
-    ta.select();                       // 클립보드가 막힌 경우 직접 고르게 둔다
-    $("copy").textContent = "아래 글을 길게 눌러 복사해 주세요";
-  }
-  setTimeout(() => { $("copy").textContent = "결과 복사하기"; }, 2500);
+$("go").addEventListener("click", start);
+$("again").addEventListener("click", start);
+$("stop").addEventListener("click", function(){ stop(null); });
+$("copy").addEventListener("click", async function(){
+  try{ await navigator.clipboard.writeText(window.__report||""); $("copy").textContent="복사했습니다"; }
+  catch(e){ $("copy").textContent="복사가 막혀 있습니다"; }
+  setTimeout(function(){ $("copy").textContent="결과 복사하기"; }, 2000);
 });
-
-// 권한을 받기 전에는 카메라 이름이 안 보이지만, 이미 준 적이 있으면 보인다.
-fillCameras();
+addEventListener("resize", function(){ if(running) drawGuide(); });
 </script>
 </body>
 </html>
