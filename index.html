@@ -82,8 +82,9 @@
     </div>
     <div id="align" class="hide">
       <p class="muted" style="text-align:center;margin:12px 0 8px">
-        타원에 얼굴을 <b>가득 채운 뒤</b> 아래를 누르세요.<br>
-        얼굴이 타원보다 작으면 <b>타원 작게</b> 를 눌러 맞추셔도 됩니다.
+        초록 네모 <b>셋이 모두 초록</b>이 되게 맞춘 뒤 아래를 누르세요.<br>
+        빨간 칸은 피부가 아닌 곳을 재고 있다는 뜻입니다.<br>
+        얼굴이 타원보다 작으면 <b>타원 작게</b> 로 줄이시면 됩니다.
       </p>
       <div style="display:flex;gap:10px">
         <button id="smaller" class="ghost" style="flex:1;margin:0">타원 작게</button>
@@ -126,7 +127,7 @@
 "use strict";
 // 화면에 박아두는 판 번호. 브라우저가 옛 페이지를 들고 있으면 결과가
 // 옛 형식으로 오는데, 그때 어느 판을 보고 있는지 바로 알기 위한 것이다.
-const VERSION = "2026-08-21 · 결과판 4";
+const VERSION = "2026-08-21 · 결과판 5";
 
 const $ = id => document.getElementById(id);
 const V=$("v"), OV=$("ov"), SAMP=$("samp"), SCX=SAMP.getContext("2d",{willReadFrequently:true});
@@ -150,26 +151,55 @@ const ROI_W = { forehead:0.5, left:0.25, right:0.25 };
 // 노트북에서 아무리 다가가도 못 맞추는 일이 실제로 있었다. 그래서 타원
 // 크기를 손으로 줄이고 키울 수 있게 하고, 재는 자리는 타원에 붙여서 함께
 // 움직이게 한다.
-const OVAL = { cx:0.5, cy:0.46, rx:0.24, ry:0.34 };
+const OVAL = { cx:0.5, cy:0.48 };
+const FACE_WH = 0.74;      // 얼굴은 세로가 길다. 가로÷세로 비율
+const BASE_RY = 0.30;      // 화면 높이 대비 얼굴 반높이. 손으로 조절할 수 있다
 let sizeScale = 1;
 
-// 타원 반지름을 1 로 봤을 때의 자리와 크기
+// 얼굴 반높이를 1 로 봤을 때의 자리와 크기 (전부 세로 기준)
 const ROI_REL = {
-  forehead:{ dx:0,     dy:-0.588, w:0.708, h:0.220 },
-  left:    { dx:-0.521,dy: 0.176, w:0.417, h:0.294 },
-  right:   { dx: 0.521,dy: 0.176, w:0.417, h:0.294 },
+  forehead:{ dx: 0,    dy:-0.60, w:0.50, h:0.16 },
+  left:    { dx:-0.38, dy: 0.18, w:0.30, h:0.24 },
+  right:   { dx: 0.38, dy: 0.18, w:0.30, h:0.24 },
 };
 
-/** 지금 타원 크기에 맞춘 타원과 재는 자리. 전부 화면 전체를 1 로 본 값. */
+/**
+ * 지금 타원 크기에 맞춘 타원과 재는 자리. 전부 화면 전체를 1 로 본 값.
+ *
+ * 가로 반지름을 화면 폭의 몇 %, 세로 반지름을 화면 높이의 몇 % 로 따로
+ * 잡으면 **화면이 가로로 길어질수록 타원도 같이 납작해진다.** 노트북에서
+ * 아무리 다가가도 얼굴이 안 맞던 이유가 이것이다. 얼굴은 어느 화면에서든
+ * 같은 모양이므로, 세로를 기준으로 정하고 가로는 화면 비율로 되돌린다.
+ */
 function geom(){
-  const rx = OVAL.rx*sizeScale, ry = OVAL.ry*sizeScale;
+  const vw = V.videoWidth || 4, vh = V.videoHeight || 3;
+  const ry = BASE_RY * sizeScale;
+  const rx = ry * FACE_WH * (vh/vw);          // 픽셀에서 얼굴 비율이 되게
   const rois = {};
   for(const k in ROI_REL){
     const o = ROI_REL[k];
-    rois[k] = { x: OVAL.cx + o.dx*rx, y: OVAL.cy + o.dy*ry,
-                w: o.w*rx, h: o.h*ry };
+    rois[k] = {
+      x: OVAL.cx + o.dx*ry*(vh/vw),
+      y: OVAL.cy + o.dy*ry,
+      w: o.w*ry*(vh/vw),
+      h: o.h*ry,
+    };
   }
   return { cx:OVAL.cx, cy:OVAL.cy, rx:rx, ry:ry, rois:rois };
+}
+
+/**
+ * 이 색이 피부처럼 보이는가.
+ *
+ * 타원을 어디에 맞춰야 하는지 말로만 알려주면 결국 못 맞춘다. 실제로
+ * 초록 네모가 천장을 재고 있었다. 칸마다 피부인지 아닌지를 색으로 보여준다.
+ */
+function isSkin(rgb){
+  const r=rgb[0], g=rgb[1], b=rgb[2];
+  const y  = 0.299*r + 0.587*g + 0.114*b;
+  const cb = 128 - 0.168736*r - 0.331264*g + 0.5*b;
+  const cr = 128 + 0.5*r - 0.418688*g - 0.081312*b;
+  return y > 45 && y < 250 && cr > 134 && cr < 182 && cb > 76 && cb < 130;
 }
 
 // ── 신호처리 ─────────────────────────────────────────────────────
@@ -366,6 +396,7 @@ function resample(times, values, fs){
 // ── 촬영 ─────────────────────────────────────────────────────────
 let stream=null, running=false, frames=[], startAt=0, fpsInfo={n:0,fps:0}, maxGap=0;
 let aligned=null;   // 자리 맞추기 화면에서 시작을 눌렀을 때 이어가는 고리
+let skinCount=0;    // 재는 칸 셋 중 몇 개가 피부 위에 있는지
 
 // 다른 창으로 가거나 화면이 꺼지면 브라우저가 카메라 콜백을 세운다. 그 사이
 // 시간은 흘러서, 40초를 요청했는데 17.8초만 담기는 일이 생겼다. 멈추게 하고
@@ -409,13 +440,22 @@ function drawGuide(){
   stroke(oval, "rgba(0,0,0,.55)", "rgba(255,255,255,.95)", 3);
   cx.setLineDash([]);
 
+  // 칸이 정말 피부 위에 있는지 색으로 알려준다
+  let onSkin = 0;
+  const seen = sampleFrame();
   for(const k in g.rois){
     const o = g.rois[k];
+    const good = isSkin(seen[k]);
+    if(good) onSkin++;
     const box = () => cx.strokeRect(r.x+r.w*(o.x-o.w/2), r.y+r.h*(o.y-o.h/2), r.w*o.w, r.h*o.h);
-    stroke(box, "rgba(0,0,0,.55)", "rgba(60,255,170,.95)", 2);
+    stroke(box, "rgba(0,0,0,.55)",
+           good ? "rgba(60,255,170,.95)" : "rgba(255,90,90,.95)", 3);
   }
+  skinCount = onSkin;
 
-  const label = "이 타원 안에 얼굴을 가득 채우세요";
+  const label = onSkin === 3
+    ? "좋습니다. 이대로 두세요"
+    : "세 칸이 모두 초록이 되게 맞추세요 (" + onSkin + "/3)";
   cx.font = "bold 15px system-ui, sans-serif";
   cx.textAlign = "center";
   const lx = r.x + r.w*0.5, ly = r.y + Math.max(18, r.h*0.06);
@@ -585,7 +625,8 @@ async function start(){
   $("prog").style.width = "0%";
   $("align").classList.add("hide");
   $("capture").classList.add("hide");
-  frames = []; running = true; maxGap = 0;
+  frames = []; running = true; maxGap = 0; warned = false;
+  $("begin").textContent = "이대로 시작";
 
   try{
     stream = await navigator.mediaDevices.getUserMedia({
@@ -613,10 +654,11 @@ async function start(){
 
   // 자리를 맞출 시간을 준다. 여기서 타원 크기를 바꿀 수 있다.
   $("align").classList.remove("hide");
-  drawGuide();
+  const tick = setInterval(function(){ if(running) drawGuide(); }, 250);
   const ok = await new Promise(function(resolve){
     aligned = resolve;
   });
+  clearInterval(tick);
   $("align").classList.add("hide");
   if(!ok || !running) return;
   fixRects();                     // 정해진 타원으로 재는 자리를 굳힌다
@@ -749,7 +791,7 @@ function finish(exp){
       + " / 얼굴 밝기 " + (exp.bright!=null ? exp.bright.toFixed(1) : "-")
       + " / 시도 " + exp.tried.join(", "),
     "가장 긴 끊김: " + maxGap.toFixed(2) + "초",
-    "타원 크기: " + sizeScale.toFixed(2) + "배",
+    "타원 크기: " + sizeScale.toFixed(2) + "배 / 피부 칸 " + skinCount + "/3",
     "판정: " + (good ? "양호" : "믿기 어려움 — " + why.join(" | "))
   ].join("\n");
 }
@@ -773,7 +815,13 @@ function stop(msg){
 $("go").addEventListener("click", start);
 $("again").addEventListener("click", start);
 $("stop").addEventListener("click", function(){ stop(null); });
+let warned = false;
 $("begin").addEventListener("click", function(){
+  if(skinCount < 3 && !warned){
+    warned = true;
+    $("begin").textContent = "피부가 아닌 칸이 있습니다 — 그래도 시작하려면 한 번 더";
+    return;
+  }
   if(aligned){ const f=aligned; aligned=null; f(true); }
 });
 function resize(step){
