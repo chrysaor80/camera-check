@@ -107,13 +107,13 @@
   </p>
 </div>
 
-<canvas id="samp" width="320" height="240" class="hide"></canvas>
+<canvas id="samp" width="192" height="144" class="hide"></canvas>
 
 <script>
 "use strict";
 // 화면에 박아두는 판 번호. 브라우저가 옛 페이지를 들고 있으면 결과가
 // 옛 형식으로 오는데, 그때 어느 판을 보고 있는지 바로 알기 위한 것이다.
-const VERSION = "2026-08-21 · 결과판 1";
+const VERSION = "2026-08-21 · 결과판 2";
 
 const $ = id => document.getElementById(id);
 const V=$("v"), OV=$("ov"), SAMP=$("samp"), SCX=SAMP.getContext("2d",{willReadFrequently:true});
@@ -364,45 +364,89 @@ function drawGuide(){
   }
 }
 
+// 영역마다 getImageData 를 부르면 그때마다 그래픽카드에서 화면을 읽어와야
+// 해서 한 장 처리에 100ms 가까이 걸린다. 초당 8장밖에 못 찍힌 원인이었다.
+// 한 번만 읽어와서 세 영역을 그 안에서 훑는다.
+const RECTS = {};
+for(const k in ROIS){
+  const o = ROIS[k];
+  RECTS[k] = {
+    x0: Math.max(0, Math.round((o.x-o.w/2)*SAMP.width)),
+    y0: Math.max(0, Math.round((o.y-o.h/2)*SAMP.height)),
+    x1: Math.min(SAMP.width,  Math.round((o.x+o.w/2)*SAMP.width)),
+    y1: Math.min(SAMP.height, Math.round((o.y+o.h/2)*SAMP.height)),
+  };
+}
 function sampleFrame(){
   SCX.drawImage(V, 0, 0, SAMP.width, SAMP.height);
+  const d = SCX.getImageData(0, 0, SAMP.width, SAMP.height).data;
   const out = {};
-  for(const k in ROIS){
-    const o = ROIS[k];
-    const x = Math.round((o.x-o.w/2)*SAMP.width),  y = Math.round((o.y-o.h/2)*SAMP.height);
-    const w = Math.max(2, Math.round(o.w*SAMP.width)), h = Math.max(2, Math.round(o.h*SAMP.height));
-    const d = SCX.getImageData(x, y, w, h).data;
-    let r=0,g=0,b=0;
-    for(let i=0;i<d.length;i+=4){ r+=d[i]; g+=d[i+1]; b+=d[i+2]; }
-    const n = d.length/4;
+  for(const k in RECTS){
+    const q = RECTS[k];
+    let r=0,g=0,b=0,n=0;
+    for(let y=q.y0; y<q.y1; y++){
+      let i = (y*SAMP.width + q.x0)*4;
+      for(let x=q.x0; x<q.x1; x++, i+=4){ r+=d[i]; g+=d[i+1]; b+=d[i+2]; n++; }
+    }
+    n = n || 1;
     out[k] = [r/n, g/n, b/n];
   }
   return out;
 }
 
-/** 자동 노출이 정한 값을 그대로 붙잡아 고정한다. 방 밝기와 무관하게 잘 맞는다. */
+/**
+ * 자동 노출이 정한 값을 그대로 붙잡아 고정한다. 방 밝기와 무관하게 잘 맞는다.
+ *
+ * 두 가지를 지킨다.
+ *
+ *   advanced 로 넣은 요청은 브라우저가 조용히 무시할 수 있다. 넣고 나서
+ *   getSettings 로 정말 바뀌었는지 보고, 안 바뀌었으면 평범한 형태로 한 번 더 넣는다.
+ *
+ *   **노출 고정에 실패하면 화이트밸런스는 건드리지 않는다.** 색만 엉뚱한 값에
+ *   묶여서 화면이 이상해 보이고 얻는 것은 없다. 실제로 그렇게 됐었다.
+ */
 async function lockExposure(track){
-  const info = { supported:false, locked:false };
+  const info = { supported:false, locked:false, wb:false, why:"" };
+  const settle = ms => new Promise(r=>setTimeout(r,ms));
   try{
     const caps = track.getCapabilities ? track.getCapabilities() : {};
-    if((caps.exposureMode||[]).indexOf("manual") < 0) return info;
+    if((caps.exposureMode||[]).indexOf("manual") < 0){
+      info.why = "이 카메라는 노출 고정을 내주지 않는다";
+      return info;
+    }
     info.supported = true;
-    await new Promise(r=>setTimeout(r,1500));         // 자동 노출이 자리를 잡게 둔다
+
+    await settle(2000);                        // 자동 노출이 자리를 잡게 둔다
     const cur = track.getSettings();
-    await track.applyConstraints({advanced:[{exposureMode:"manual"}]});
-    await new Promise(r=>setTimeout(r,250));
+
+    for(const shape of ["advanced", "plain"]){
+      try{
+        await track.applyConstraints(shape === "advanced"
+          ? {advanced:[{exposureMode:"manual"}]}
+          : {exposureMode:"manual"});
+      }catch(e){ info.why = shape + " 거부: " + e.name; }
+      await settle(400);
+      if(track.getSettings().exposureMode === "manual"){ info.locked = true; break; }
+      if(!info.why) info.why = shape + " 는 조용히 무시됨";
+    }
+    if(!info.locked) return info;
+
+    // 자동이 고른 노출 시간을 그대로 못 박는다. 못 읽으면 그냥 둔다 —
+    // 임의의 값을 넣으면 방이 어두워지거나 하얗게 날아간다.
     if(typeof cur.exposureTime === "number"){
       try{ await track.applyConstraints({advanced:[{exposureTime:cur.exposureTime}]}); }catch(e){}
     }
-    if((caps.whiteBalanceMode||[]).indexOf("manual") >= 0){
+
+    // 색은 고정할 값을 아는 경우에만 잠근다.
+    if((caps.whiteBalanceMode||[]).indexOf("manual") >= 0
+        && typeof cur.colorTemperature === "number"){
       try{
         await track.applyConstraints({advanced:[{whiteBalanceMode:"manual"}]});
-        if(typeof cur.colorTemperature === "number")
-          await track.applyConstraints({advanced:[{colorTemperature:cur.colorTemperature}]});
+        await track.applyConstraints({advanced:[{colorTemperature:cur.colorTemperature}]});
+        info.wb = track.getSettings().whiteBalanceMode === "manual";
       }catch(e){}
     }
-    info.locked = track.getSettings().exposureMode === "manual";
-  }catch(e){}
+  }catch(e){ info.why = "오류: " + (e.name||e.message); }
   return info;
 }
 
@@ -473,16 +517,20 @@ async function start(){
   }
   if(!running) return;
 
-  startAt = performance.now();
+  // 시계는 **첫 장이 실제로 들어온 순간**부터 센다. 설정을 바꾸면 카메라가
+  // 다시 준비하느라 몇 초씩 아무것도 안 보내는데, 그 빈 시간이 촬영 시간에서
+  // 깎여 나갔었다(40초를 요청했는데 34.6초만 담김).
+  startAt = 0;
   const useVFC = typeof V.requestVideoFrameCallback === "function";
   const grab = function(now){
     if(!running) return;
+    if(!startAt) startAt = now;
     const t = (now - startAt)/1000;
     if(t >= SECONDS){ finish(exp); return; }
     frames.push({ t:t, roi: sampleFrame() });
     $("prog").style.width = Math.min(100, t/SECONDS*100) + "%";
     $("status").textContent = "촬영 중 · " + Math.ceil(SECONDS - t) + "초 남음";
-    if(frames.length % 6 === 0){ drawGuide(); drawWave($("wave"), liveWave(), "#0e6e8c"); }
+    if(frames.length % 15 === 0){ drawGuide(); drawWave($("wave"), liveWave(), "#0e6e8c"); }
     useVFC ? V.requestVideoFrameCallback(grab)
            : requestAnimationFrame(function(){ grab(performance.now()); });
   };
@@ -530,12 +578,25 @@ function finish(exp){
     return;
   }
 
-  // 봉우리가 뚜렷한 정도와 추정치가 모인 정도로 신뢰도를 본다
-  const good = hr.kurtosis >= 0.30 && hr.spread <= 6;
+  // 봉우리가 뚜렷한 정도와 추정치가 모인 정도로 신뢰도를 본다.
+  //
+  // 찾는 범위(45~150)의 **끝에 붙은 값**은 따로 걸러낸다. 조명 흔들림이나
+  // 몸의 느린 움직임은 낮은 쪽에 에너지를 몰아주는데, 그 비탈의 끝이 범위
+  // 경계에 걸리면 맥박처럼 보이는 값이 나온다. 실제로 48 이 그렇게 나왔다.
+  const atEdge = hr.bpm <= HR_RANGE[0] + 5 || hr.bpm >= HR_RANGE[1] - 5;
+  const slow   = fpsInfo.fps < 15;
+  const good   = hr.kurtosis >= 0.30 && hr.spread <= 6 && !atEdge && !slow;
+
+  let why = [];
+  if(atEdge) why.push("봉우리가 찾는 범위의 끝에 걸렸습니다. 맥박이 아니라 조명이나 몸의 흔들림일 수 있습니다.");
+  if(slow)   why.push("초당 " + fpsInfo.fps.toFixed(1) + "장밖에 못 찍었습니다. 다른 창을 닫고 다시 해보세요.");
+  if(!exp.locked) why.push("밝기가 고정되지 않았습니다. 카메라가 밝기를 조절하면서 신호를 지웁니다.");
+  if(hr.kurtosis < 0.30) why.push("봉우리가 뚜렷하지 않습니다. 더 밝은 곳에서 해보세요.");
+
   $("verdict").className = "banner " + (good ? "ok" : "info");
   $("verdict").textContent = good
     ? "잘 잡혔습니다."
-    : "신호가 약합니다. 값이 흔들릴 수 있습니다.\n더 밝은 곳에서 움직이지 말고 다시 해보세요.";
+    : "이 값은 믿기 어렵습니다.\n" + why.join("\n");
   $("bpm").textContent = hr.bpm.toFixed(0);
 
   drawWave($("wave2"), sig.slice(0, Math.min(sig.length, FS*8)), "#0e6e8c");
@@ -546,7 +607,10 @@ function finish(exp){
     row("창별 추정치", hr.estimates.map(v=>v.toFixed(1)).join(" / ")) +
     row("추정치 흩어짐", hr.spread.toFixed(2) + " (작을수록 좋음)") +
     row("봉우리 뚜렷함", hr.kurtosis.toFixed(3) + " (0.30 이상이면 양호)") +
-    row("밝기 고정", exp.locked ? "O 고정됨" : (exp.supported ? "X 안 먹음" : "X 지원 안 함"));
+    row("밝기 고정", exp.locked ? "O 고정됨"
+        : (exp.supported ? "X 안 먹음" : "X 지원 안 함") +
+          (exp.why ? ' <span class="muted">(' + exp.why + ')</span>' : "")) +
+    row("색 고정", exp.wb ? "O 고정됨" : "— 건드리지 않음");
 
   window.__report = [
     "== 얼굴 촬영 시험 ==",
@@ -557,7 +621,9 @@ function finish(exp){
     "창별 추정치: " + hr.estimates.map(v=>v.toFixed(2)).join(", "),
     "흩어짐: " + hr.spread.toFixed(3) + " / 봉우리: " + hr.kurtosis.toFixed(4),
     "장수: " + fpsInfo.n + " · 초당 " + fpsInfo.fps.toFixed(2) + " · 길이 " + secs.toFixed(1) + "초",
-    "밝기 고정: 지원 " + exp.supported + " / 적용 " + exp.locked
+    "밝기 고정: 지원 " + exp.supported + " / 적용 " + exp.locked + " / 색 " + exp.wb
+      + (exp.why ? " / " + exp.why : ""),
+    "판정: " + (good ? "양호" : "믿기 어려움 — " + why.join(" | "))
   ].join("\n");
 }
 
