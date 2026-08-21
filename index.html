@@ -80,9 +80,22 @@
       <video id="v" playsinline muted autoplay></video>
       <canvas id="ov"></canvas>
     </div>
-    <div class="bar"><i id="prog"></i></div>
-    <p id="status" style="text-align:center;font-weight:700;margin:8px 0 12px">준비 중</p>
-    <canvas id="wave" class="wave"></canvas>
+    <div id="align" class="hide">
+      <p class="muted" style="text-align:center;margin:12px 0 8px">
+        타원에 얼굴을 <b>가득 채운 뒤</b> 아래를 누르세요.<br>
+        얼굴이 타원보다 작으면 <b>타원 작게</b> 를 눌러 맞추셔도 됩니다.
+      </p>
+      <div style="display:flex;gap:10px">
+        <button id="smaller" class="ghost" style="flex:1;margin:0">타원 작게</button>
+        <button id="bigger"  class="ghost" style="flex:1;margin:0">타원 크게</button>
+      </div>
+      <button id="begin" style="margin-top:10px">이대로 시작</button>
+    </div>
+    <div id="capture" class="hide">
+      <div class="bar"><i id="prog"></i></div>
+      <p id="status" style="text-align:center;font-weight:700;margin:8px 0 12px">준비 중</p>
+      <canvas id="wave" class="wave"></canvas>
+    </div>
     <button id="stop" class="ghost">그만두기</button>
   </div>
 
@@ -113,7 +126,7 @@
 "use strict";
 // 화면에 박아두는 판 번호. 브라우저가 옛 페이지를 들고 있으면 결과가
 // 옛 형식으로 오는데, 그때 어느 판을 보고 있는지 바로 알기 위한 것이다.
-const VERSION = "2026-08-21 · 결과판 3";
+const VERSION = "2026-08-21 · 결과판 4";
 
 const $ = id => document.getElementById(id);
 const V=$("v"), OV=$("ov"), SAMP=$("samp"), SCX=SAMP.getContext("2d",{willReadFrequently:true});
@@ -132,12 +145,32 @@ const HR_WIN = 20, HR_HOP = 10, HR_MEDIAN = 3;
 const ROI_W = { forehead:0.5, left:0.25, right:0.25 };
 
 // 얼굴을 타원에 채웠을 때의 자리. 얼굴 추적 대신 안내 타원으로 맞춘다.
+//
+// 화면이 넓은 웹캠에서는 보통 거리에서 얼굴이 타원보다 훨씬 작게 잡힌다.
+// 노트북에서 아무리 다가가도 못 맞추는 일이 실제로 있었다. 그래서 타원
+// 크기를 손으로 줄이고 키울 수 있게 하고, 재는 자리는 타원에 붙여서 함께
+// 움직이게 한다.
 const OVAL = { cx:0.5, cy:0.46, rx:0.24, ry:0.34 };
-const ROIS = {
-  forehead:{ x:0.50, y:0.26, w:0.17, h:0.075 },
-  left:    { x:0.375,y:0.52, w:0.10, h:0.10  },
-  right:   { x:0.625,y:0.52, w:0.10, h:0.10  },
+let sizeScale = 1;
+
+// 타원 반지름을 1 로 봤을 때의 자리와 크기
+const ROI_REL = {
+  forehead:{ dx:0,     dy:-0.588, w:0.708, h:0.220 },
+  left:    { dx:-0.521,dy: 0.176, w:0.417, h:0.294 },
+  right:   { dx: 0.521,dy: 0.176, w:0.417, h:0.294 },
 };
+
+/** 지금 타원 크기에 맞춘 타원과 재는 자리. 전부 화면 전체를 1 로 본 값. */
+function geom(){
+  const rx = OVAL.rx*sizeScale, ry = OVAL.ry*sizeScale;
+  const rois = {};
+  for(const k in ROI_REL){
+    const o = ROI_REL[k];
+    rois[k] = { x: OVAL.cx + o.dx*rx, y: OVAL.cy + o.dy*ry,
+                w: o.w*rx, h: o.h*ry };
+  }
+  return { cx:OVAL.cx, cy:OVAL.cy, rx:rx, ry:ry, rois:rois };
+}
 
 // ── 신호처리 ─────────────────────────────────────────────────────
 function fft(re, im, inverse){
@@ -332,6 +365,7 @@ function resample(times, values, fs){
 
 // ── 촬영 ─────────────────────────────────────────────────────────
 let stream=null, running=false, frames=[], startAt=0, fpsInfo={n:0,fps:0}, maxGap=0;
+let aligned=null;   // 자리 맞추기 화면에서 시작을 눌렀을 때 이어가는 고리
 
 // 다른 창으로 가거나 화면이 꺼지면 브라우저가 카메라 콜백을 세운다. 그 사이
 // 시간은 흘러서, 40초를 요청했는데 17.8초만 담기는 일이 생겼다. 멈추게 하고
@@ -365,17 +399,18 @@ function drawGuide(){
     cx.lineWidth = w;   cx.strokeStyle = light; draw();
   };
 
+  const g = geom();
   const oval = () => {
     cx.beginPath();
-    cx.ellipse(r.x+r.w*OVAL.cx, r.y+r.h*OVAL.cy, r.w*OVAL.rx, r.h*OVAL.ry, 0, 0, Math.PI*2);
+    cx.ellipse(r.x+r.w*g.cx, r.y+r.h*g.cy, r.w*g.rx, r.h*g.ry, 0, 0, Math.PI*2);
     cx.stroke();
   };
   cx.setLineDash([12,9]);
   stroke(oval, "rgba(0,0,0,.55)", "rgba(255,255,255,.95)", 3);
   cx.setLineDash([]);
 
-  for(const k in ROIS){
-    const o = ROIS[k];
+  for(const k in g.rois){
+    const o = g.rois[k];
     const box = () => cx.strokeRect(r.x+r.w*(o.x-o.w/2), r.y+r.h*(o.y-o.h/2), r.w*o.w, r.h*o.h);
     stroke(box, "rgba(0,0,0,.55)", "rgba(60,255,170,.95)", 2);
   }
@@ -389,18 +424,24 @@ function drawGuide(){
 }
 
 // 영역마다 getImageData 를 부르면 그때마다 그래픽카드에서 화면을 읽어와야
-// 해서 한 장 처리에 100ms 가까이 걸린다. 초당 8장밖에 못 찍힌 원인이었다.
-// 한 번만 읽어와서 세 영역을 그 안에서 훑는다.
-const RECTS = {};
-for(const k in ROIS){
-  const o = ROIS[k];
-  RECTS[k] = {
-    x0: Math.max(0, Math.round((o.x-o.w/2)*SAMP.width)),
-    y0: Math.max(0, Math.round((o.y-o.h/2)*SAMP.height)),
-    x1: Math.min(SAMP.width,  Math.round((o.x+o.w/2)*SAMP.width)),
-    y1: Math.min(SAMP.height, Math.round((o.y+o.h/2)*SAMP.height)),
-  };
+// 해서 한 장 처리에 오래 걸린다. 한 번만 읽어와서 세 영역을 그 안에서 훑는다.
+// 타원 크기를 바꾸면 다시 계산한다 — 촬영 중에는 바꿀 수 없게 막아둔다.
+let RECTS = {};
+function fixRects(){
+  const g = geom();
+  RECTS = {};
+  for(const k in g.rois){
+    const o = g.rois[k];
+    RECTS[k] = {
+      x0: Math.max(0, Math.round((o.x-o.w/2)*SAMP.width)),
+      y0: Math.max(0, Math.round((o.y-o.h/2)*SAMP.height)),
+      x1: Math.min(SAMP.width,  Math.round((o.x+o.w/2)*SAMP.width)),
+      y1: Math.min(SAMP.height, Math.round((o.y+o.h/2)*SAMP.height)),
+    };
+  }
 }
+fixRects();
+
 function sampleFrame(){
   SCX.drawImage(V, 0, 0, SAMP.width, SAMP.height);
   const d = SCX.getImageData(0, 0, SAMP.width, SAMP.height).data;
@@ -542,6 +583,8 @@ async function start(){
   $("s-run").classList.remove("hide");
   $("status").textContent = "카메라를 켜는 중";
   $("prog").style.width = "0%";
+  $("align").classList.add("hide");
+  $("capture").classList.add("hide");
   frames = []; running = true; maxGap = 0;
 
   try{
@@ -558,10 +601,26 @@ async function start(){
   await V.play().catch(function(){});
   const track = stream.getVideoTracks()[0];
 
+  // 검은 여백을 없애고 화면을 카메라 비율에 맞춘다. 4:3 틀에 16:9 를 넣으면
+  // 위아래가 검게 잘리고 영상이 작아져서 타원을 맞추기 어려웠다.
+  if(V.videoWidth && V.videoHeight)
+    document.querySelector(".stage").style.aspectRatio = V.videoWidth + "/" + V.videoHeight;
+
   drawGuide();
   $("status").textContent = "밝기를 맞추는 중";
   const exp = await lockExposure(track);
   if(!running) return;
+
+  // 자리를 맞출 시간을 준다. 여기서 타원 크기를 바꿀 수 있다.
+  $("align").classList.remove("hide");
+  drawGuide();
+  const ok = await new Promise(function(resolve){
+    aligned = resolve;
+  });
+  $("align").classList.add("hide");
+  if(!ok || !running) return;
+  fixRects();                     // 정해진 타원으로 재는 자리를 굳힌다
+  $("capture").classList.remove("hide");
 
   for(let c=3;c>0 && running;c--){
     $("status").textContent = "곧 시작합니다 · " + c;
@@ -690,12 +749,14 @@ function finish(exp){
       + " / 얼굴 밝기 " + (exp.bright!=null ? exp.bright.toFixed(1) : "-")
       + " / 시도 " + exp.tried.join(", "),
     "가장 긴 끊김: " + maxGap.toFixed(2) + "초",
+    "타원 크기: " + sizeScale.toFixed(2) + "배",
     "판정: " + (good ? "양호" : "믿기 어려움 — " + why.join(" | "))
   ].join("\n");
 }
 
 function stop(msg){
   running = false;
+  if(aligned){ const f=aligned; aligned=null; f(false); }
   if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
   $("s-run").classList.add("hide");
   if(msg){
@@ -712,6 +773,16 @@ function stop(msg){
 $("go").addEventListener("click", start);
 $("again").addEventListener("click", start);
 $("stop").addEventListener("click", function(){ stop(null); });
+$("begin").addEventListener("click", function(){
+  if(aligned){ const f=aligned; aligned=null; f(true); }
+});
+function resize(step){
+  sizeScale = Math.max(0.45, Math.min(1.6, sizeScale*step));
+  fixRects();
+  drawGuide();
+}
+$("smaller").addEventListener("click", function(){ resize(1/1.12); });
+$("bigger").addEventListener("click",  function(){ resize(1.12); });
 $("copy").addEventListener("click", async function(){
   try{ await navigator.clipboard.writeText(window.__report||""); $("copy").textContent="복사했습니다"; }
   catch(e){ $("copy").textContent="복사가 막혀 있습니다"; }
