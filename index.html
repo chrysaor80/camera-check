@@ -258,7 +258,7 @@
 "use strict";
 // 화면에 박아두는 판 번호. 브라우저가 옛 페이지를 들고 있으면 결과가
 // 옛 형식으로 오는데, 그때 어느 판을 보고 있는지 바로 알기 위한 것이다.
-const VERSION = "2026-08-21 · 화면판 20";
+const VERSION = "2026-08-21 · 화면판 21";
 
 const $ = id => document.getElementById(id);
 const V=$("v"), OV=$("ov"), SAMP=$("samp"), SCX=SAMP.getContext("2d",{willReadFrequently:true});
@@ -1254,6 +1254,9 @@ function compute(exp){
   const rr = respirationRate(chrom, FS);
 
   // 고칠 재료. 영상도 사진도 아니고 피부 세 조각의 평균 색 시계열이다.
+  const sdnn = (v && v.ok) ? v.sdnn : 45;         // 못 구하면 기준점으로 둔다
+  const vit = vitality(me.sex, me.age, me.height, me.weight, hr.bpm, sdnn);
+
   lastRaw = {
     판: VERSION, 시각: new Date().toISOString(), 브라우저: navigator.userAgent,
     입력: { 성별: me.sex, 나이대: me.age, 키: me.height, 몸무게: me.weight },
@@ -1280,8 +1283,6 @@ function compute(exp){
       return o;
     })()
   };
-  const sdnn = (v && v.ok) ? v.sdnn : 45;         // 못 구하면 기준점으로 둔다
-  const vit = vitality(me.sex, me.age, me.height, me.weight, hr.bpm, sdnn);
 
   // 봉우리·세기·등급 같은 진단값은 여기 넣지 않는다. 손님이 볼 것이 아니고,
   // 넣으면 칸이 좁아져 정작 큰 숫자가 안 보인다. 「자세히」에 다 있다.
