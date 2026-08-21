@@ -152,7 +152,7 @@
 "use strict";
 // 화면에 박아두는 판 번호. 브라우저가 옛 페이지를 들고 있으면 결과가
 // 옛 형식으로 오는데, 그때 어느 판을 보고 있는지 바로 알기 위한 것이다.
-const VERSION = "2026-08-21 · 결과판 11";
+const VERSION = "2026-08-21 · 결과판 12";
 
 const $ = id => document.getElementById(id);
 const V=$("v"), OV=$("ov"), SAMP=$("samp"), SCX=SAMP.getContext("2d",{willReadFrequently:true});
@@ -547,10 +547,19 @@ function respirationRate(green, fs){
   // 2배 성분이 기본보다 세게 나오는 일이 흔하다. 실제로 분당 11.5 회로
   // 쉬는 사람에게서 23.29 가 나왔다. 심박수에는 있던 방어가 여기엔 없었다.
   // 절반이 **국소 최대**이면서 충분히 셀 때만 바꾼다.
+  // 2배 방어가 걸렸는지를 기록에 남긴다. 실측에서 8.79 가 나왔는데
+  // 8.79x2 = 17.58 이라, 방어가 멀쩡한 값을 반토막 낸 것인지 아니면 원래
+  // 거기가 제일 셌던 것인지 알 수가 없었다. 추측으로 고치지 않으려면
+  // 무엇이 일어났는지부터 보여야 한다.
+  let halved = null;
   const half = Math.round(k/2);
   if(half > 0 && half < N/2 && half*fs/N*60 >= RR_SUBHARMONIC_MIN_RPM){
     const localPeak = acc[half] >= acc[half-1] && acc[half] >= acc[half+1];
-    if(localPeak && acc[half] >= RR_SUBHARMONIC_RATIO*acc[k]) k = half;
+    if(localPeak && acc[half] >= RR_SUBHARMONIC_RATIO*acc[k]){
+      halved = { from: k*fs/N*60, to: half*fs/N*60,
+                 ratio: acc[half]/acc[k] };
+      k = half;
+    }
   }
   const raw = k*fs/N*60;
 
@@ -580,7 +589,7 @@ function respirationRate(green, fs){
   return { rpm: clamp(raw, RR_RANGE[0], RR_RANGE[1]), rpmRaw: raw,
            strength: best/(total+1e-30), overMean: best/(total+1e-30)*bins,
            overMedian: overMedian, level: level, atEdge: atEdge,
-           segs: segs, top3: top3 };
+           segs: segs, top3: top3, halved: halved };
 }
 
 /**
@@ -1135,6 +1144,7 @@ function compute(exp){
         + ", 가운뎃값대비 " + rr.overMedian.toFixed(1) + "배"
         + (rr.atEdge ? ", 대역 끝" : "") + ", 조각 " + rr.segs + ")"
         + "  후보 " + rr.top3
+        + (rr.halved ? "  [2배방어: " + rr.halved.from.toFixed(1) + " -> " + rr.halved.to.toFixed(1) + ", 세기비 " + rr.halved.ratio.toFixed(2) + "]" : "  [2배방어 안 걸림]")
       : "못 구함"),
     "심박변이도: " + (v && v.ok
       ? v.sdnn.toFixed(1) + "ms (클램프 전 " + v.sdnnRaw.toFixed(1)
