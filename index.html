@@ -3,6 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 브라우저가 옛 판을 붙들고 있어 고친 것이 반영되지 않는 일이 반복됐다.
+     GitHub Pages 가 10분짜리 캐시 머리말을 붙이는데 그건 우리가 못 바꾸므로,
+     주소 뒤에 ?v= 를 붙여 나눠주는 것이 확실한 방법이다. 이 표시는 보조다. -->
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <title>얼굴 촬영 시험</title>
 <style>
   :root{
@@ -127,7 +131,7 @@
 "use strict";
 // 화면에 박아두는 판 번호. 브라우저가 옛 페이지를 들고 있으면 결과가
 // 옛 형식으로 오는데, 그때 어느 판을 보고 있는지 바로 알기 위한 것이다.
-const VERSION = "2026-08-21 · 결과판 6";
+const VERSION = "2026-08-21 · 결과판 7";
 
 const $ = id => document.getElementById(id);
 const V=$("v"), OV=$("ov"), SAMP=$("samp"), SCX=SAMP.getContext("2d",{willReadFrequently:true});
