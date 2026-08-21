@@ -38,9 +38,15 @@
     background:var(--bg);
     padding:calc(env(safe-area-inset-top,0px) + 12px) 14px
             calc(env(safe-area-inset-bottom,0px) + 14px)}
+  /* 스크롤은 화면이 아니라 **안쪽 상자**가 맡는다.
+   *
+   * 처음에 .screen.roll{display:block} 으로 만들었더니 .screen.hide 와
+   * 우선순위가 같아서 뒤에 온 roll 이 이겼다. 숨겨야 할 진단 화면이
+   * 늘 보였고 position:fixed 라 첫 화면을 덮었다. 클래스끼리 display 를
+   * 다투게 하지 않는 편이 안전하다. */
+  .rollinner{flex:1 1 auto;min-height:0;overflow-y:auto;
+    -webkit-overflow-scrolling:touch}
   .screen.hide{display:none}
-  /* 진단 화면만 스크롤을 허용한다. 손님이 볼 화면이 아니다. */
-  .screen.roll{overflow-y:auto;display:block}
 
   .top{flex:0 0 auto;display:flex;align-items:center;gap:10px;min-height:40px}
   .mid{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;
@@ -227,8 +233,8 @@
 </div>
 
 <!-- 9. 자세히. 저희가 보는 화면이라 여기만 스크롤을 허용한다 -->
-<div id="s-diag" class="screen roll hide">
-  <div class="card">
+<div id="s-diag" class="screen hide">
+  <div class="rollinner"><div class="card">
     <div id="verdict2" class="banner"></div>
     <canvas id="wave2" class="wave" style="height:130px;margin-top:12px"></canvas>
     <p class="tiny" style="margin-top:6px">뽑아낸 맥박 파형</p>
@@ -243,7 +249,7 @@
     <p class="tiny" id="savenote" style="margin-top:6px"></p>
     <button id="copy" class="ghost" style="margin-top:8px">결과 복사하기</button>
     <button id="closeDetail" style="margin-top:14px">돌아가기</button>
-  </div>
+  </div></div>
 </div>
 
 <canvas id="samp" width="192" height="144" class="hide"></canvas>
@@ -252,7 +258,7 @@
 "use strict";
 // 화면에 박아두는 판 번호. 브라우저가 옛 페이지를 들고 있으면 결과가
 // 옛 형식으로 오는데, 그때 어느 판을 보고 있는지 바로 알기 위한 것이다.
-const VERSION = "2026-08-21 · 화면판 17";
+const VERSION = "2026-08-21 · 화면판 18";
 
 const $ = id => document.getElementById(id);
 const V=$("v"), OV=$("ov"), SAMP=$("samp"), SCX=SAMP.getContext("2d",{willReadFrequently:true});
@@ -270,6 +276,8 @@ function goTo(id){
   $(id).classList.remove("hide");
   window.scrollTo(0,0);
 }
+goTo("s-intro");   // 표시가 어긋나 있어도 첫 화면 하나만 남긴다
+
 document.querySelectorAll(".back[data-back]").forEach(function(b){
   b.addEventListener("click", function(){ goTo(b.getAttribute("data-back")); });
 });
